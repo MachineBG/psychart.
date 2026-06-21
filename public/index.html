@@ -869,6 +869,14 @@ let currentDocType = null;
 
 // ─── INIT ────────────────────────────────────
 function init() {
+  // Verificar autenticação
+  const token = localStorage.getItem('psychart_token');
+  if (!token) { window.location.href = '/'; return; }
+  window._token = token;
+  // Verificar se sessão ainda é válida
+  fetch('/api/me', { headers: { 'x-session-token': token } })
+    .then(r => { if (!r.ok) { localStorage.removeItem('psychart_token'); window.location.href = '/'; } })
+    .catch(() => {});
   loadStorage();
   initSig('sig-canvas-config');
   initSig('sig-canvas-assinar');
@@ -1472,7 +1480,7 @@ async function generateAISummary() {
   try {
     const resp = await fetch('/api/ai/summary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-session-token': window._token||'' },
       body: JSON.stringify({ transcript: transcriptBuffer })
     });
     const data = await resp.json();
@@ -1548,6 +1556,14 @@ function notify(msg){
   document.getElementById('notif-icon').textContent=msg[0];
   document.getElementById('notif-text').textContent=msg.slice(2);
   el.classList.add('show'); clearTimeout(ntTimer); ntTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+async function fazerLogout() {
+  if (!confirm('Deseja sair do sistema?')) return;
+  const token = window._token || localStorage.getItem('psychart_token');
+  await fetch('/api/logout', { method: 'POST', headers: { 'x-session-token': token } }).catch(()=>{});
+  localStorage.removeItem('psychart_token');
+  window.location.href = '/';
 }
 
 init();
