@@ -1558,6 +1558,57 @@ function notify(msg){
   el.classList.add('show'); clearTimeout(ntTimer); ntTimer=setTimeout(()=>el.classList.remove('show'),3500);
 }
 
+async function alterarCredenciais() {
+  const atual    = v('cred-atual');
+  const usuario  = v('cred-usuario').trim();
+  const nova     = v('cred-nova');
+  const confirma = v('cred-confirma');
+  const msg      = document.getElementById('cred-msg');
+
+  const showMsg = (texto, tipo) => {
+    msg.textContent = texto;
+    msg.style.background = tipo === 'ok' ? '#D1FAE5' : '#FEE2E2';
+    msg.style.color = tipo === 'ok' ? '#065F46' : '#991B1B';
+    msg.style.display = 'block';
+  };
+
+  if (!atual)    { showMsg('⚠️ Informe a senha atual.', 'erro'); return; }
+  if (!usuario)  { showMsg('⚠️ Informe o novo usuário.', 'erro'); return; }
+  if (!nova)     { showMsg('⚠️ Informe a nova senha.', 'erro'); return; }
+  if (nova.length < 6) { showMsg('⚠️ A senha deve ter pelo menos 6 caracteres.', 'erro'); return; }
+  if (nova !== confirma) { showMsg('⚠️ As senhas não coincidem.', 'erro'); return; }
+
+  try {
+    const r = await fetch('/api/admin/credenciais', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-session-token': window._token || '' },
+      body: JSON.stringify({ senhaAtual: atual, novoUsuario: usuario, novaSenha: nova })
+    });
+    const data = await r.json();
+
+    if (data.ok) {
+      showMsg('✅ ' + (data.msg || 'Credenciais atualizadas!'), 'ok');
+      if (data.aviso) {
+        setTimeout(() => showMsg('⚠️ ' + data.aviso, 'erro'), 2000);
+      }
+      // Limpa campos
+      ['cred-atual','cred-usuario','cred-nova','cred-confirma'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
+      // Desloga após 2 segundos
+      setTimeout(async () => {
+        await fetch('/api/logout', { method: 'POST', headers: { 'x-session-token': window._token || '' } }).catch(()=>{});
+        localStorage.removeItem('psychart_token');
+        window.location.href = '/';
+      }, 2000);
+    } else {
+      showMsg('❌ ' + (data.error || 'Erro ao alterar credenciais.'), 'erro');
+    }
+  } catch(e) {
+    showMsg('❌ Erro de conexão: ' + e.message, 'erro');
+  }
+}
+
 async function fazerLogout() {
   if (!confirm('Deseja sair do sistema?')) return;
   const token = window._token || localStorage.getItem('psychart_token');
