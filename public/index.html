@@ -1406,26 +1406,55 @@ function assinarVIDaaS(tipo) {
 }
 
 // ─── SPEECH ──────────────────────────────────
+let recRestartTimer = null;
+
 function toggleRecording() { isRecording ? stopRec() : startRec(); }
 
-function startRec() {
-  const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
-  if (!SR) { notify('⚠️ Use Chrome para reconhecimento de voz.'); return; }
-  recognition = new SR(); recognition.lang='pt-BR'; recognition.continuous=true; recognition.interimResults=true;
-  recognition.onstart = ()=>{ isRecording=true; document.getElementById('mic-btn').classList.add('recording'); document.getElementById('mic-label').textContent='Parar Gravação'; };
-  recognition.onresult = e => {
-    let interim='';
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal) transcriptBuffer+=e.results[i][0].transcript+' ';
-      else interim=e.results[i][0].transcript;
-    }
-    const ta=document.getElementById('transcript-area');
-    ta.innerHTML=transcriptBuffer+(interim?`<span style="color:var(--smoke);font-style:italic;">${interim}</span>`:'');
-    ta.scrollTop=ta.scrollHeight;
+function criarRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { notify('⚠️ Use Chrome ou Safari para reconhecimento de voz.'); return null; }
+  const r = new SR();
+  r.lang = 'pt-BR';
+  r.continuous = false;
+  r.interimResults = true;
+  r.maxAlternatives = 1;
+  r.onstart = () => {
+    isRecording = true;
+    document.getElementById('mic-btn').classList.add('recording');
+    document.getElementById('mic-label').textContent = 'Gravando... (toque para parar)';
   };
-  recognition.onerror=e=>{ if(e.error!=='no-speech') notify('⚠️ Erro mic: '+e.error); };
-  recognition.onend=()=>{ if(isRecording) recognition.start(); };
-  recognition.start();
+  r.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) transcriptBuffer += e.results[i][0].transcript + ' ';
+      else interim = e.results[i][0].transcript;
+    }
+    const ta = document.getElementById('transcript-area');
+    ta.innerHTML = transcriptBuffer + (interim ? '<span style="color:var(--smoke);font-style:italic;">' + interim + '</span>' : '');
+    ta.scrollTop = ta.scrollHeight;
+  };
+  r.onerror = e => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    notify('⚠️ Erro microfone: ' + e.error);
+  };
+  r.onend = () => {
+    if (isRecording) {
+      clearTimeout(recRestartTimer);
+      recRestartTimer = setTimeout(() => {
+        if (isRecording) {
+          recognition = criarRecognition();
+          if (recognition) { try { recognition.start(); } catch(e) {} }
+        }
+      }, 300);
+    }
+  };
+  return r;
+}
+
+function startRec() {
+  recognition = criarRecognition();
+  if (!recognition) return;
+  try { recognition.start(); } catch(e) { notify('⚠️ Não foi possível iniciar o microfone.'); }
 }
 
 function stopRec() {
