@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PsyChart — Acesso</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #1C2B2A;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .login-wrap {
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .logo {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  .logo h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 36px;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+
+  .logo p {
+    font-size: 13px;
+    color: #8A9E9C;
+    margin-top: 4px;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px 28px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+  }
+
+  .card-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1C2B2A;
+    margin-bottom: 6px;
+  }
+
+  .card-sub {
+    font-size: 13px;
+    color: #8A9E9C;
+    margin-bottom: 24px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 16px;
+  }
+
+  .field label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #3D4F4E;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .field input {
+    padding: 11px 14px;
+    border: 1.5px solid #D4E4E1;
+    border-radius: 9px;
+    font-size: 15px;
+    font-family: 'DM Sans', sans-serif;
+    color: #1C2B2A;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .field input:focus {
+    border-color: #4A7C6F;
+  }
+
+  .btn-login {
+    width: 100%;
+    padding: 13px;
+    background: #4A7C6F;
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-login:hover { background: #6FA99A; }
+  .btn-login:disabled { background: #8A9E9C; cursor: not-allowed; }
+
+  .error-box {
+    background: #FEE2E2;
+    color: #991B1B;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 12px;
+    display: none;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .error-box.show { display: flex; }
+
+  .footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 11px;
+    color: #8A9E9C;
+    line-height: 1.6;
+  }
+
+  .loading {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="login-wrap">
+  <div class="logo">
+    <h1>PsyChart</h1>
+    <p>Prontuário Eletrônico · Psiquiatria</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Bem-vinda, Dra. Nathany 👩‍⚕️</div>
+    <div class="card-sub">Acesso restrito — sistema clínico privado</div>
+
+    <div class="field">
+      <label>Usuário</label>
+      <input type="text" id="usuario" placeholder="seu usuário" autocomplete="username" autocapitalize="none">
+    </div>
+
+    <div class="field">
+      <label>Senha</label>
+      <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <button class="btn-login" id="btn-login" onclick="fazerLogin()">
+      <div class="loading" id="loading"></div>
+      <span id="btn-text">Entrar no Sistema</span>
+    </button>
+
+    <div class="error-box" id="error-box">
+      ❌ <span id="error-text">Usuário ou senha incorretos.</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    🔒 Acesso protegido por senha<br>
+    Dados clínicos criptografados em trânsito (HTTPS)
+  </div>
+</div>
+
+<script>
+  // Se já tem sessão válida, redireciona direto
+  const token = localStorage.getItem('psychart_token');
+  if (token) {
+    fetch('/api/me', { headers: { 'x-session-token': token } })
+      .then(r => { if (r.ok) window.location.href = '/app'; })
+      .catch(() => {});
+  }
+
+  document.getElementById('senha').addEventListener('keydown', e => {
+    if (e.key === 'Enter') fazerLogin();
+  });
+  document.getElementById('usuario').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('senha').focus();
+  });
+
+  async function fazerLogin() {
+    const usuario = document.getElementById('usuario').value.trim();
+    const senha = document.getElementById('senha').value;
+    const errBox = document.getElementById('error-box');
+    const btn = document.getElementById('btn-login');
+    const loading = document.getElementById('loading');
+    const btnText = document.getElementById('btn-text');
+
+    if (!usuario || !senha) {
+      document.getElementById('error-text').textContent = 'Preencha usuário e senha.';
+      errBox.classList.add('show'); return;
+    }
+
+    btn.disabled = true;
+    loading.style.display = 'block';
+    btnText.textContent = 'Entrando...';
+    errBox.classList.remove('show');
+
+    try {
+      const r = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha })
+      });
+      const data = await r.json();
+
+      if (data.ok && data.token) {
+        localStorage.setItem('psychart_token', data.token);
+        window.location.href = '/app';
+      } else {
+        document.getElementById('error-text').textContent = data.error || 'Usuário ou senha incorretos.';
+        errBox.classList.add('show');
+        btn.disabled = false;
+        loading.style.display = 'none';
+        btnText.textContent = 'Entrar no Sistema';
+      }
+    } catch (e) {
+      document.getElementById('error-text').textContent = 'Erro de conexão. Tente novamente.';
+      errBox.classList.add('show');
+      btn.disabled = false;
+      loading.style.display = 'none';
+      btnText.textContent = 'Entrar no Sistema';
+    }
+  }
+</script>
+</body>
+</html>
