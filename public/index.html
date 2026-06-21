@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PsyChart — Prontuário Eletrônico</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
+
+  :root {
+    --sage: #4A7C6F;
+    --sage-light: #6FA99A;
+    --sage-pale: #EAF2F0;
+    --ink: #1C2B2A;
+    --ink-mid: #3D4F4E;
+    --smoke: #8A9E9C;
+    --line: #D4E4E1;
+    --paper: #F7FAF9;
+    --white: #FFFFFF;
+    --amber: #C8882B;
+    --amber-pale: #FEF3C7;
+    --red: #B04040;
+    --blue: #2563EB;
+    --blue-pale: #EFF6FF;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(28,43,42,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; }
+
+  /* ── SIDEBAR ── */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 240px; background: var(--ink); display: flex; flex-direction: column; flex-shrink: 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; overflow-y: auto; }
+  .sidebar-logo { padding: 24px 20px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-logo h1 { font-family: 'DM Serif Display', serif; font-size: 20px; color: #fff; }
+  .sidebar-logo span { font-size: 11px; color: var(--smoke); display: block; margin-top: 2px; }
+  .sidebar-nav { padding: 12px; flex: 1; }
+  .nav-section { font-size: 10px; font-weight: 600; letter-spacing: 1px; color: var(--smoke); text-transform: uppercase; padding: 12px 10px 5px; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 7px; cursor: pointer; color: rgba(255,255,255,0.6); font-size: 13px; transition: all 0.15s; margin-bottom: 1px; }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .nav-item.active { background: var(--sage); color: #fff; font-weight: 600; }
+  .nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+  .sidebar-doctor { padding: 14px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 9px; }
+  .doctor-avatar { width: 34px; height: 34px; background: var(--sage); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #fff; flex-shrink: 0; }
+  .doctor-name { font-size: 12px; color: #fff; font-weight: 500; }
+  .doctor-crm { font-size: 10px; color: var(--smoke); }
+
+  /* ── MAIN ── */
+  .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; }
+  .topbar { background: #fff; border-bottom: 1px solid var(--line); padding: 13px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .topbar-title { font-size: 16px; font-weight: 600; }
+  .topbar-actions { display: flex; gap: 8px; }
+
+  /* ── BUTTONS ── */
+  .btn { padding: 8px 15px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary { background: var(--sage); color: #fff; }
+  .btn-primary:hover { background: var(--sage-light); }
+  .btn-outline { background: transparent; border: 1.5px solid var(--line); color: var(--ink-mid); }
+  .btn-outline:hover { border-color: var(--sage); color: var(--sage); }
+  .btn-ghost { background: transparent; color: var(--ink-mid); }
+  .btn-ghost:hover { background: var(--sage-pale); }
+  .btn-amber { background: var(--amber); color: #fff; }
+  .btn-amber:hover { background: #b5771f; }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-blue:hover { background: #1d4ed8; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-sm { padding: 6px 10px; font-size: 12px; }
+
+  /* ── VIEWS ── */
+  .view { display: none; padding: 24px; }
+  .view.active { display: block; }
+
+  /* ── CARDS ── */
+  .card { background: #fff; border-radius: var(--radius); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 12px; font-weight: 700; color: var(--smoke); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; display: flex; align-items: center; gap: 7px; }
+
+  /* ── FORMS ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-grid.four { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  .form-field { display: flex; flex-direction: column; gap: 4px; }
+  .form-field.full { grid-column: 1 / -1; }
+  .form-label { font-size: 11px; font-weight: 700; color: var(--ink-mid); text-transform: uppercase; letter-spacing: 0.4px; }
+  .form-input, .form-select, .form-textarea { padding: 8px 11px; border: 1.5px solid var(--line); border-radius: 7px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--ink); outline: none; background: #fff; transition: border-color 0.15s; width: 100%; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--sage); }
+  .form-textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 2px; border-bottom: 2px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+  .tab { padding: 9px 15px; font-size: 12px; font-weight: 600; color: var(--smoke); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; white-space: nowrap; }
+  .tab:hover { color: var(--sage); }
+  .tab.active { color: var(--sage); border-bottom-color: var(--sage); }
+
+  /* ── BADGES ── */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-green { background: #D1FAE5; color: #065F46; }
+  .badge-amber { background: var(--amber-pale); color: #92400E; }
+  .badge-blue { background: var(--blue-pale); color: #1e40af; }
+  .badge-red { background: #FEE2E2; color: #991B1B; }
+  .badge-sage { background: var(--sage-pale); color: var(--sage); }
+
+  /* ── PATIENT CARDS ── */
+  .patient-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .patient-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; cursor: pointer; transition: all 0.2s; }
+  .patient-card:hover { border-color: var(--sage); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(74,124,111,0.12); }
+  .patient-avatar { width: 40px; height: 40px; background: var(--sage-pale); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--sage); flex-shrink: 0; }
+  .patient-name { font-size: 14px; font-weight: 600; }
+  .patient-meta { font-size: 11px; color: var(--smoke); margin-top: 2px; }
+  .patient-tag { display: inline-block; background: var(--sage-pale); color: var(--sage); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-right: 3px; margin-top: 6px; }
+
+  /* ── CONSULTA LAYOUT ── */
+  .consulta-layout { display: grid; grid-template-columns: 1fr 360px; gap: 18px; }
+
+  /* ── AI PANEL ── */
+  .ai-panel { background: var(--ink); border-radius: var(--radius); padding: 18px; height: fit-content; position: sticky; top: 70px; }
+  .ai-panel-header { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .ai-dot { width: 7px; height: 7px; background: #4ade80; border-radius: 50%; animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.2)} }
+  .ai-panel-title { font-size: 13px; font-weight: 600; color: #fff; }
+  .ai-panel-sub { font-size: 10px; color: var(--smoke); }
+  .transcript-area { background: rgba(255,255,255,0.04); border-radius: 7px; padding: 12px; min-height: 100px; max-height: 160px; overflow-y: auto; font-size: 11px; color: rgba(255,255,255,0.65); line-height: 1.6; margin-bottom: 12px; font-style: italic; }
+  .ai-summary-box { background: rgba(74,124,111,0.2); border: 1px solid rgba(74,124,111,0.4); border-radius: 7px; padding: 12px; margin-bottom: 12px; }
+  .ai-summary-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; color: var(--sage-light); text-transform: uppercase; margin-bottom: 6px; }
+  .ai-summary-text { font-size: 11px; color: rgba(255,255,255,0.85); line-height: 1.6; }
+  .mic-btn { width: 100%; padding: 11px; background: var(--sage); color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; display: flex; align-items: center; justify-content: center; gap: 7px; transition: all 0.2s; margin-bottom: 8px; }
+  .mic-btn.recording { background: var(--red); animation: pulse-rec 1.5s infinite; }
+  @keyframes pulse-rec { 0%,100%{box-shadow:0 0 0 0 rgba(176,64,64,.4)} 50%{box-shadow:0 0 0 7px rgba(176,64,64,0)} }
+  .video-links { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+  .video-link-btn { padding: 7px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.75); text-align: center; transition: all 0.15s; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .video-link-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .ai-thinking { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--sage-light); margin-bottom: 8px; }
+  .ai-thinking-dots span { display: inline-block; width: 4px; height: 4px; background: var(--sage-light); border-radius: 50%; animation: bounce 1.2s infinite; margin: 0 1px; }
+  .ai-thinking-dots span:nth-child(2){animation-delay:.2s} .ai-thinking-dots span:nth-child(3){animation-delay:.4s}
+  @keyframes bounce{0%,80%,100%{transform:scale(.6)}40%{transform:scale(1)}}
+
+  /* ── STATS ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .stat-value { font-family: 'DM Serif Display', serif; font-size: 30px; color: var(--ink); }
+  .stat-label { font-size: 11px; color: var(--smoke); margin-top: 3px; }
+
+  /* ── AGENDA ── */
+  .agenda-slot { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; background: #fff; cursor: pointer; transition: all 0.15s; }
+  .agenda-slot:hover { border-color: var(--sage); }
+  .agenda-slot.confirmed { border-left: 3px solid var(--sage); }
+  .agenda-time { font-size: 14px; font-weight: 700; min-width: 50px; }
+  .agenda-patient-name { font-size: 13px; font-weight: 600; }
+  .agenda-type { font-size: 11px; color: var(--smoke); }
+
+  /* ── EVOLUÇÃO ── */
+  .evolucao-item { border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+  .evolucao-date { font-size: 11px; color: var(--smoke); font-weight: 700; margin-bottom: 5px; }
+  .evolucao-text { font-size: 13px; color: var(--ink-mid); line-height: 1.6; }
+  .evolucao-assinada { display: flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 11px; color: var(--sage); font-weight: 700; }
+
+  /* ── RECEITUÁRIO / EXAMES ── */
+  .doc-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; background: #fff; }
+  .doc-item-main { flex: 1; }
+  .doc-item-name { font-size: 13px; font-weight: 700; }
+  .doc-item-sub { font-size: 12px; color: var(--smoke); margin-top: 2px; line-height: 1.5; }
+  .doc-item-actions { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
+  .doc-remove { background: none; border: none; color: var(--smoke); cursor: pointer; font-size: 15px; padding: 3px; }
+  .doc-remove:hover { color: var(--red); }
+
+  /* ── VIDAAS PANEL ── */
+  .vidaas-panel { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .vidaas-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .vidaas-logo { width: 42px; height: 42px; background: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .vidaas-title { font-size: 15px; font-weight: 700; color: #fff; }
+  .vidaas-sub { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 1px; }
+  .vidaas-steps { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .vidaas-step { display: flex; align-items: flex-start; gap: 10px; }
+  .vidaas-step-num { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.15); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .vidaas-step-num.done { background: #4ade80; color: #000; }
+  .vidaas-step-text { font-size: 12px; color: rgba(255,255,255,0.8); line-height: 1.5; }
+  .vidaas-step-text strong { color: #fff; }
+  .vidaas-status { background: rgba(255,255,255,0.08); border-radius: 7px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .vidaas-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .vidaas-status-text { font-size: 12px; color: rgba(255,255,255,0.8); }
+  .qr-area { background: #fff; border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 12px; }
+  .qr-placeholder { width: 140px; height: 140px; margin: 0 auto 10px; border: 2px dashed var(--line); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 48px; }
+  .qr-text { font-size: 12px; color: var(--smoke); line-height: 1.4; }
+
+  /* ── ASSINATURA ── */
+  .signature-wrap { border: 2px dashed var(--line); border-radius: 8px; overflow: hidden; background: var(--paper); }
+  .sig-canvas { display: block; width: 100%; touch-action: none; cursor: crosshair; height: 110px; }
+  .sig-controls { display: flex; gap: 7px; margin-top: 8px; }
+
+  /* ── MODAL ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(28,43,42,0.6); z-index: 999; backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 26px; width: 100%; max-width: 560px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+  .modal.lg { max-width: 720px; }
+  .modal-title { font-family: 'DM Serif Display', serif; font-size: 21px; margin-bottom: 4px; }
+  .modal-sub { font-size: 13px; color: var(--smoke); margin-bottom: 20px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; flex-wrap: wrap; }
+
+  /* ── PRONTUARIO MODAL ── */
+  .prontuario-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid var(--line); }
+  .prontuario-patient { font-family: 'DM Serif Display', serif; font-size: 24px; }
+  .prontuario-meta { font-size: 12px; color: var(--smoke); margin-top: 3px; }
+
+  /* ── SECTION HEADER ── */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .section-title { font-family: 'DM Serif Display', serif; font-size: 22px; }
+
+  /* ── SEARCH ── */
+  .search-bar { width: 100%; padding: 9px 13px; border: 1.5px solid var(--line); border-radius: 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; outline: none; margin-bottom: 16px; }
+  .search-bar:focus { border-color: var(--sage); }
+
+  /* ── EMPTY STATE ── */
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--smoke); }
+  .empty-icon { font-size: 40px; margin-bottom: 10px; }
+
+  /* ── DOCUMENT PREVIEW ── */
+  .doc-preview { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 28px; font-size: 13px; line-height: 1.8; }
+  .doc-preview .doc-header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid var(--ink); padding-bottom: 16px; }
+  .doc-preview .doc-type { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--smoke); margin-bottom: 4px; }
+  .doc-preview h2 { font-family: 'DM Serif Display', serif; font-size: 20px; }
+  .doc-preview .doc-crm { font-size: 12px; color: var(--smoke); }
+  .doc-preview .doc-patient { background: var(--sage-pale); border-radius: 6px; padding: 10px 14px; margin: 14px 0; font-size: 12px; }
+  .doc-preview .doc-item-list { margin: 10px 0; padding-left: 16px; }
+  .doc-preview .doc-item-list li { margin-bottom: 12px; }
+  .doc-preview .doc-footer { margin-top: 40px; border-top: 1px solid var(--line); padding-top: 12px; display: flex; align-items: flex-end; justify-content: space-between; }
+  .sig-block { text-align: center; }
+  .sig-line { width: 200px; border-top: 1px solid var(--ink); margin-bottom: 4px; }
+  .sig-name { font-size: 11px; font-weight: 700; }
+  .sig-crm { font-size: 10px; color: var(--smoke); }
+  .vidaas-badge { display: inline-flex; align-items: center; gap: 5px; background: #0f2027; color: #4ade80; font-size: 10px; font-weight: 700; padding: 4px 9px; border-radius: 20px; letter-spacing: 0.5px; }
+
+  /* ── NOTIFICATION ── */
+  .notification { position: fixed; bottom: 22px; right: 22px; background: var(--ink); color: #fff; padding: 11px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.2); display: none; z-index: 9999; }
+  .notification.show { display: flex; align-items: center; gap: 7px; animation: slideUp .3s ease; }
+  @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+
+  /* ── SEPARADOR ── */
+  .divider { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+
+  .pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; background: var(--sage-pale); color: var(--sage); font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+  .pill button { background: none; border: none; cursor: pointer; color: var(--sage); font-size: 12px; padding: 0; line-height: 1; }
+
+  .highlight-box { background: var(--amber-pale); border: 1px solid #fde68a; border-radius: 8px; padding: 12px 14px; font-size: 12px; line-height: 1.6; margin-bottom: 12px; }
+  .highlight-box.blue { background: var(--blue-pale); border-color: #bfdbfe; }
+
+  @media(max-width:900px){
+    .sidebar{width:190px} .main{margin-left:190px}
+    .consulta-layout{grid-template-columns:1fr} .ai-panel{position:static}
+    .stats-row{grid-template-columns:repeat(2,1fr)} .form-grid.three{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h1>PsyChart</h1>
+    <span>Prontuário Eletrônico</span>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <div class="nav-item active" onclick="showView('dashboard')"><span class="icon">📊</span> Dashboard</div>
+    <div class="nav-item" onclick="showView('pacientes')"><span class="icon">👥</span> Pacientes</div>
+    <div class="nav-item" onclick="showView('agenda')"><span class="icon">📅</span> Agenda</div>
+    <div class="nav-section">Clínico</div>
+    <div class="nav-item" onclick="showView('consulta')"><span class="icon">🩺</span> Nova Consulta</div>
+    <div class="nav-section">Documentos</div>
+    <div class="nav-item" onclick="showView('receituario')"><span class="icon">💊</span> Receituário</div>
+    <div class="nav-item" onclick="showView('exames')"><span class="icon">🔬</span> Pedido de Exames</div>
+    <div class="nav-item" onclick="showView('documentos')"><span class="icon">📄</span> Documentos</div>
+    <div class="nav-section">Sistema</div>
+    <div class="nav-item" onclick="showView('configuracoes')"><span class="icon">⚙️</span> Configurações</div>
+  </nav>
+  <div class="sidebar-doctor">
+    <div class="doctor-avatar" id="doc-avatar">N</div>
+    <div>
+      <div class="doctor-name" id="doc-name">Dra. Nathany</div>
+      <div class="doctor-crm" id="doc-crm">CRM-SP</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <div class="topbar-actions">
+      <button class="btn btn-outline" onclick="openModal('modal-paciente')">➕ Novo Paciente</button>
+      <button class="btn btn-primary" onclick="showView('consulta')">🩺 Iniciar Consulta</button>
+    </div>
+  </div>
+
+  <!-- ══ DASHBOARD ══ -->
+  <div class="view active" id="view-dashboard">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-value" id="stat-pacientes">0</div><div class="stat-label">Pacientes</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-hoje">0</div><div class="stat-label">Consultas Hoje</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-receitas">0</div><div class="stat-label">Receitas Emitidas</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-assinados">0</div><div class="stat-label">Docs Assinados (VIDaaS)</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card"><div class="card-title">📅 Próximas Consultas</div><div id="dash-agenda"></div></div>
+      <div class="card"><div class="card-title">👥 Últimos Pacientes</div><div id="dash-pacientes"></div></div>
+    </div>
+  </div>
+
+  <!-- ══ PACIENTES ══ -->
+  <div class="view" id="view-pacientes">
+    <div class="section-header">
+      <div class="section-title">Pacientes</div>
+      <button class="btn btn-primary" onclick="openModal('modal-paciente')">➕ Novo Paciente</button>
+    </div>
+    <input class="search-bar" type="text" placeholder="🔍  Buscar por nome, CPF ou diagnóstico..." oninput="renderPacientes(this.value)">
+    <div class="patient-grid" id="patient-grid"><div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">👥</div><p>Nenhum paciente cadastrado.</p></div></div>
+  </div>
+
+  <!-- ══ AGENDA ══ -->
+  <div class="view" id="view-agenda">
+    <div class="section-header">
+      <div class="section-title">Agenda</div>
+      <button class="btn btn-primary" onclick="openModal('modal-agendamento')">➕ Agendar</button>
+    </div>
+    <div class="card"><div class="card-title">📅 Consultas</div><div id="agenda-list"><div class="empty-state"><div class="empty-icon">📅</div><p>Nenhuma consulta agendada.</p></div></div></div>
+  </div>
+
+  <!-- ══ CONSULTA ══ -->
+  <div class="view" id="view-consulta">
+    <div class="section-header">
+      <div class="section-title">Nova Consulta</div>
+      <div style="display:flex;gap:7px;">
+        <button class="btn btn-outline" onclick="notify('💾 Rascunho salvo.')">💾 Salvar Rascunho</button>
+        <button class="btn btn-amber" onclick="abrirReceituarioRapido()">💊 Receituário</button>
+        <button class="btn btn-blue" onclick="abrirExamesRapido()">🔬 Pedir Exames</button>
+        <button class="btn btn-primary" onclick="prepAssinar()">✍️ Assinar & Finalizar</button>
+      </div>
+    </div>
+    <div class="consulta-layout">
+      <div>
+        <div class="card">
+          <div class="card-title">👤 Identificação</div>
+          <div class="form-grid">
+            <div class="form-field"><label class="form-label">Paciente</label>
+              <select class="form-select" id="consulta-paciente"><option value="">Selecionar...</option></select>
+            </div>
+            <div class="form-field"><label class="form-label">Data / Hora</label><input class="form-input" type="datetime-local" id="consulta-datetime"></div>
+            <div class="form-field"><label class="form-label">Tipo</label>
+              <select class="form-select" id="consulta-tipo"><option>Consulta Inicial</option><option>Retorno</option><option>Urgência</option><option>Telepsiquiatria</option></select>
+            </div>
+            <div class="form-field"><label class="form-label">Modalidade</label>
+              <select class="form-select" id="consulta-mod"><option>Presencial</option><option>Telemedicina</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'ct-anamnese')">Anamnese</div>
+          <div class="tab" onclick="switchTab(this,'ct-exame')">Exame Mental</div>
+          <div class="tab" onclick="switchTab(this,'ct-hipotese')">Hipótese / CID</div>
+          <div class="tab" onclick="switchTab(this,'ct-conduta')">Conduta</div>
+        </div>
+
+        <div id="ct-anamnese">
+          <div class="card">
+            <div class="card-title">📋 Anamnese</div>
+            <div class="form-field" style="margin-bottom:12px;"><label class="form-label">Queixa Principal</label><textarea class="form-textarea" id="queixa"></textarea></div>
+            <div class="form-field" style="margin-bottom:12px;"><label class="form-label">HDA — História da Doença Atual</label><textarea class="form-textarea" id="hda" style="min-height:110px;"></textarea></div>
+            <div class="form-grid">
+              <div class="form-field"><label class="form-label">História Psiquiátrica Pregressa</label><textarea class="form-textarea" id="hpp"></textarea></div>
+              <div class="form-field"><label class="form-label">História Familiar</label><textarea class="form-textarea" id="hist-fam"></textarea></div>
+              <div class="form-field"><label class="form-label">Uso de Substâncias</label><textarea class="form-textarea" id="substancias"></textarea></div>
+              <div class="form-field"><label class="form-label">Comorbidades</label><textarea class="form-textarea" id="comorbidades"></textarea></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="ct-exame" style="display:none;">
+          <div class="card">
+            <div class="card-title">🧠 Exame do Estado Mental</div>
+            <div class="form-grid three" style="gap:10px;">
+              <div class="form-field"><label class="form-label">Aparência</label><select class="form-select" id="aparencia"><option>Adequada</option><option>Descuidada</option><option>Bizarra</option></select></div>
+              <div class="form-field"><label class="form-label">Consciência</label><select class="form-select" id="consciencia"><option>Lúcido</option><option>Confuso</option><option>Torporoso</option><option>Comatoso</option></select></div>
+              <div class="form-field"><label class="form-label">Orientação</label><select class="form-select" id="orientacao"><option>Orientado T+E</option><option>Desorientado tempo</option><option>Desorientado espaço</option><option>Desorientado total</option></select></div>
+              <div class="form-field"><label class="form-label">Humor</label><select class="form-select" id="humor"><option>Eutímico</option><option>Deprimido</option><option>Ansioso</option><option>Expansivo</option><option>Irritável</option><option>Disfórico</option></select></div>
+              <div class="form-field"><label class="form-label">Afeto</label><select class="form-select" id="afeto"><option>Adequado</option><option>Embotado</option><option>Inapropriado</option><option>Lábil</option></select></div>
+              <div class="form-field"><label class="form-label">Curso do Pensamento</label><select class="form-select" id="pens-curso"><option>Normal</option><option>Acelerado</option><option>Lentificado</option><option>Fuga de ideias</option><option>Perseverativo</option></select></div>
+              <div class="form-field"><label class="form-label">Conteúdo do Pensamento</label><select class="form-select" id="pens-conteudo"><option>Normal</option><option>Ideação suicida</option><option>Ideação homicida</option><option>Delirante</option><option>Obsessivo</option></select></div>
+              <div class="form-field"><label class="form-label">Percepção</label><select class="form-select" id="percepcao"><option>Normal</option><option>Alucinações auditivas</option><option>Alucinações visuais</option><option>Ilusões</option></select></div>
+              <div class="form-field"><label class="form-label">Insight</label><select class="form-select" id="insight"><option>Preservado</option><option>Parcial</option><option>Ausente</option></select></div>
+              <div class="form-field"><label class="form-label">Memória</label><select class="form-select" id="memoria"><option>Íntegra</option><option>Déficit recente</option><option>Déficit remoto</option></select></div>
+              <div class="form-field"><label class="form-label">Atenção</label><select class="form-select" id="atencao"><option>Normal</option><option>Déficit leve</option><option>Déficit moderado</option><option>Déficit grave</option></select></div>
+              <div class="form-field"><label class="form-label">Juízo Crítico</label><select class="form-select" id="juizo"><option>Preservado</option><option>Prejudicado</option><option>Ausente</option></select></div>
+            </div>
+            <div class="form-field" style="margin-top:12px;"><label class="form-label">Observações</label><textarea class="form-textarea" id="obs-exame"></textarea></div>
+          </div>
+        </div>
+
+        <div id="ct-hipotese" style="display:none;">
+          <div class="card">
+            <div class="card-title">🏷️ Hipótese Diagnóstica</div>
+            <div class="form-grid">
+              <div class="form-field"><label class="form-label">Hipótese Principal</label><input class="form-input" id="hipotese" placeholder="Ex: Episódio depressivo maior"></div>
+              <div class="form-field"><label class="form-label">CID-10 Principal</label><input class="form-input" id="cid" placeholder="Ex: F32.1"></div>
+              <div class="form-field"><label class="form-label">Diagnóstico Diferencial</label><input class="form-input" id="dif"></div>
+              <div class="form-field"><label class="form-label">CID-10 Secundário</label><input class="form-input" id="cid2" placeholder="Ex: F41.0"></div>
+              <div class="form-field full"><label class="form-label">Justificativa</label><textarea class="form-textarea" id="just-diag"></textarea></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="ct-conduta" style="display:none;">
+          <div class="card">
+            <div class="card-title">📝 Conduta</div>
+            <div class="form-field" style="margin-bottom:12px;"><label class="form-label">Evolução / Conduta</label><textarea class="form-textarea" id="evolucao" style="min-height:130px;"></textarea></div>
+            <div class="form-grid">
+              <div class="form-field"><label class="form-label">Retorno em</label><input class="form-input" id="retorno" type="date"></div>
+              <div class="form-field"><label class="form-label">Encaminhamentos</label><input class="form-input" id="encam" placeholder="Psicólogo, CAPS..."></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Panel -->
+      <div class="ai-panel">
+        <div class="ai-panel-header">
+          <div class="ai-dot"></div>
+          <div><div class="ai-panel-title">IA Clínica</div><div class="ai-panel-sub">Transcrição e resumo em tempo real</div></div>
+        </div>
+        <div class="ai-thinking" id="ai-thinking" style="display:none;">
+          <span>IA analisando</span><div class="ai-thinking-dots"><span></span><span></span><span></span></div>
+        </div>
+        <div style="font-size:10px;color:var(--smoke);margin-bottom:5px;font-weight:700;">TRANSCRIÇÃO</div>
+        <div class="transcript-area" id="transcript-area"><em>Clique em "Iniciar Gravação" e fale...</em></div>
+        <div class="ai-summary-box" id="ai-summary-box" style="display:none;">
+          <div class="ai-summary-label">✨ Resumo IA</div>
+          <div class="ai-summary-text" id="ai-summary-text"></div>
+        </div>
+        <button class="mic-btn" id="mic-btn" onclick="toggleRecording()">🎙️ <span id="mic-label">Iniciar Gravação</span></button>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:10px;font-size:11px;background:transparent;color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.2);" onclick="generateAISummary()">✨ Gerar Resumo com IA</button>
+        <div style="font-size:10px;color:var(--smoke);font-weight:700;margin-bottom:6px;">VIDEOCHAMADA GRATUITA</div>
+        <div class="video-links">
+          <a class="video-link-btn" href="https://meet.google.com/new" target="_blank">📹 Google Meet</a>
+          <a class="video-link-btn" href="https://meet.jit.si/" target="_blank">📹 Jitsi Meet</a>
+          <a class="video-link-btn" href="https://whereby.com" target="_blank">📹 Whereby</a>
+          <a class="video-link-btn" href="#" onclick="openCustomJitsi(event)">🔗 Sala Própria</a>
+        </div>
+        <div style="font-size:9px;color:var(--smoke);margin-top:7px;line-height:1.5;">💡 Jitsi Meet: open source, LGPD-compatible, sem conta necessária.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RECEITUÁRIO ══ -->
+  <div class="view" id="view-receituario">
+    <div class="section-header">
+      <div class="section-title">Receituário</div>
+      <button class="btn btn-primary" onclick="openModal('modal-nova-receita')">➕ Nova Receita</button>
+    </div>
+    <div class="card"><div class="card-title">💊 Receitas Emitidas</div><div id="receitas-list"><div class="empty-state"><div class="empty-icon">💊</div><p>Nenhuma receita emitida.</p></div></div></div>
+  </div>
+
+  <!-- ══ EXAMES ══ -->
+  <div class="view" id="view-exames">
+    <div class="section-header">
+      <div class="section-title">Pedido de Exames</div>
+      <button class="btn btn-primary" onclick="openModal('modal-novo-exame')">➕ Novo Pedido</button>
+    </div>
+    <div class="card"><div class="card-title">🔬 Pedidos Emitidos</div><div id="exames-list"><div class="empty-state"><div class="empty-icon">🔬</div><p>Nenhum pedido emitido.</p></div></div></div>
+  </div>
+
+  <!-- ══ DOCUMENTOS ══ -->
+  <div class="view" id="view-documentos">
+    <div class="section-header"><div class="section-title">Documentos Assinados</div></div>
+    <div class="card"><div class="card-title">📄 Histórico de Documentos</div><div id="docs-list"><div class="empty-state"><div class="empty-icon">📄</div><p>Nenhum documento emitido ainda.</p></div></div></div>
+  </div>
+
+  <!-- ══ CONFIGURAÇÕES ══ -->
+  <div class="view" id="view-configuracoes">
+    <div class="section-title" style="margin-bottom:20px;">Configurações</div>
+    <div class="card">
+      <div class="card-title">👩‍⚕️ Dados da Médica</div>
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">Nome Completo</label><input class="form-input" id="cfg-nome" value="Dra. Nathany Ellen Silva Teixeira"></div>
+        <div class="form-field"><label class="form-label">CRM</label><input class="form-input" id="cfg-crm" placeholder="CRM-SP 000000"></div>
+        <div class="form-field"><label class="form-label">CPF (para VIDaaS)</label><input class="form-input" id="cfg-cpf" placeholder="000.000.000-00"></div>
+        <div class="form-field"><label class="form-label">Especialidade</label><input class="form-input" id="cfg-esp" value="Psiquiatria"></div>
+        <div class="form-field full"><label class="form-label">Endereço do Consultório</label><input class="form-input" id="cfg-end" placeholder="Rua, número, cidade — SP"></div>
+        <div class="form-field"><label class="form-label">Telefone</label><input class="form-input" id="cfg-tel" placeholder="(11) 9 0000-0000"></div>
+        <div class="form-field"><label class="form-label">E-mail</label><input class="form-input" id="cfg-email" type="email"></div>
+      </div>
+      <div style="margin-top:14px;"><button class="btn btn-primary" onclick="saveConfig()">💾 Salvar</button></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🤖 IA — Claude (Anthropic)</div>
+      <div class="highlight-box blue">
+        A chave da API Claude fica configurada no servidor (Railway), não no navegador. Nenhum dado clínico sai do seu servidor.
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔐 VIDaaS — Certificado Digital ICP-Brasil</div>
+      <div class="highlight-box blue" style="margin-bottom:14px;">
+        <strong>ℹ️ Como funciona o VIDaaS:</strong> Ao emitir uma receita ou pedido de exames, o sistema gera o PDF e envia para assinatura via VIDaaS (certificado do CFM/CRM). Você receberá uma <strong>notificação no app VIDaaS</strong> no celular, digita sua senha e o documento é assinado com validade jurídica ICP-Brasil.
+      </div>
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">CPF cadastrado no VIDaaS</label><input class="form-input" id="cfg-vidaas-cpf" placeholder="000.000.000-00"></div>
+        <div class="form-field"><label class="form-label">Duração da sessão</label>
+          <select class="form-select" id="cfg-vidaas-lifetime">
+            <option value="3600">1 hora</option><option value="14400">4 horas</option>
+            <option value="28800" selected>8 horas</option><option value="43200">12 horas (plantão)</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;">
+        <button class="btn btn-blue" onclick="autenticarVIDaaS()">🔐 Autenticar no VIDaaS</button>
+        <button class="btn btn-outline" onclick="verificarSessaoVIDaaS()">🔄 Verificar Sessão</button>
+      </div>
+      <div id="vidaas-session-status" style="margin-top:10px;font-size:12px;color:var(--smoke);"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">✍️ Assinatura Manual (fallback)</div>
+      <div class="form-field" style="margin-bottom:10px;"><label class="form-label">Desenhe sua assinatura</label>
+        <div class="signature-wrap"><canvas class="sig-canvas" id="sig-canvas-config" height="110"></canvas></div>
+      </div>
+      <div class="sig-controls">
+        <button class="btn btn-outline btn-sm" onclick="clearSig('sig-canvas-config')">🗑️ Limpar</button>
+        <button class="btn btn-primary btn-sm" onclick="saveSig()">💾 Salvar Assinatura</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ══════════ MODALS ══════════ -->
+
+<!-- Modal: Novo Paciente -->
+<div class="modal-overlay" id="modal-paciente">
+  <div class="modal">
+    <div class="modal-title">Novo Paciente</div>
+    <div class="modal-sub">Cadastro no prontuário eletrônico.</div>
+    <div class="form-grid">
+      <div class="form-field full"><label class="form-label">Nome Completo *</label><input class="form-input" id="p-nome"></div>
+      <div class="form-field"><label class="form-label">Data de Nascimento</label><input class="form-input" id="p-nasc" type="date"></div>
+      <div class="form-field"><label class="form-label">Sexo</label><select class="form-select" id="p-sexo"><option value="">—</option><option>Feminino</option><option>Masculino</option><option>Outro</option></select></div>
+      <div class="form-field"><label class="form-label">CPF</label><input class="form-input" id="p-cpf" placeholder="000.000.000-00"></div>
+      <div class="form-field"><label class="form-label">Telefone</label><input class="form-input" id="p-tel" type="tel"></div>
+      <div class="form-field full"><label class="form-label">E-mail</label><input class="form-input" id="p-email" type="email"></div>
+      <div class="form-field full"><label class="form-label">CEP</label>
+        <div style="display:flex;gap:6px;">
+          <input class="form-input" id="p-cep" placeholder="00000-000" maxlength="9" oninput="mascararCEP(this)" style="max-width:140px;">
+          <button class="btn btn-outline btn-sm" onclick="buscarCEP()">🔍 Buscar</button>
+        </div>
+      </div>
+      <div class="form-field full"><label class="form-label">Endereço</label><input class="form-input" id="p-rua" placeholder="Rua / Avenida"></div>
+      <div class="form-field"><label class="form-label">Número</label><input class="form-input" id="p-num" placeholder="Nº"></div>
+      <div class="form-field"><label class="form-label">Complemento</label><input class="form-input" id="p-comp" placeholder="Apto, Bloco..."></div>
+      <div class="form-field"><label class="form-label">Bairro</label><input class="form-input" id="p-bairro"></div>
+      <div class="form-field"><label class="form-label">Cidade</label><input class="form-input" id="p-cidade"></div>
+      <div class="form-field"><label class="form-label">Estado</label>
+        <select class="form-select" id="p-uf">
+          <option value="">UF</option>
+          <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option>
+          <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+          <option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option>
+          <option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+          <option>RS</option><option>RO</option><option>RR</option><option>SC</option><option selected>SP</option>
+          <option>SE</option><option>TO</option>
+        </select>
+      </div>
+      <div class="form-field"><label class="form-label">Convênio</label><input class="form-input" id="p-conv" placeholder="Particular, Unimed..."></div>
+      <div class="form-field"><label class="form-label">Diagnóstico / CID</label><input class="form-input" id="p-diag"></div>
+      <div class="form-field full"><label class="form-label">Observações</label><textarea class="form-textarea" id="p-obs" style="min-height:60px;"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-paciente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePaciente()">✅ Cadastrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Agendamento -->
+<div class="modal-overlay" id="modal-agendamento">
+  <div class="modal">
+    <div class="modal-title">Novo Agendamento</div>
+    <div class="modal-sub">Agendar consulta.</div>
+    <div class="form-grid">
+      <div class="form-field full"><label class="form-label">Paciente *</label><select class="form-select" id="ag-pac"></select></div>
+      <div class="form-field"><label class="form-label">Data e Hora *</label><input class="form-input" id="ag-dt" type="datetime-local"></div>
+      <div class="form-field"><label class="form-label">Tipo</label><select class="form-select" id="ag-tipo"><option>Consulta Inicial</option><option>Retorno</option><option>Urgência</option><option>Telepsiquiatria</option></select></div>
+      <div class="form-field full"><label class="form-label">Observações</label><textarea class="form-textarea" id="ag-obs" style="min-height:60px;"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-agendamento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAgendamento()">📅 Agendar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Prontuário -->
+<div class="modal-overlay" id="modal-prontuario" style="align-items:flex-start;">
+  <div class="modal lg">
+    <div class="prontuario-header">
+      <div>
+        <div style="font-size:11px;color:var(--smoke);font-weight:700;" id="pront-id">ID #—</div>
+        <div class="prontuario-patient" id="pront-nome">—</div>
+        <div class="prontuario-meta" id="pront-meta">—</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-end;">
+        <span class="badge badge-green">Ativo</span>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modal-prontuario')">✕ Fechar</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab(this,'pr-dados')">Dados</div>
+      <div class="tab" onclick="switchTab(this,'pr-evolucoes')">Evoluções</div>
+      <div class="tab" onclick="switchTab(this,'pr-receitas')">Receitas</div>
+      <div class="tab" onclick="switchTab(this,'pr-exames')">Exames</div>
+    </div>
+    <div id="pr-dados">
+      <div class="form-grid">
+        <div class="form-field"><label class="form-label">CPF</label><div id="pront-cpf" style="font-size:13px;padding:8px 0;">—</div></div>
+        <div class="form-field"><label class="form-label">Telefone</label><div id="pront-tel" style="font-size:13px;padding:8px 0;">—</div></div>
+        <div class="form-field"><label class="form-label">E-mail</label><div id="pront-email" style="font-size:13px;padding:8px 0;">—</div></div>
+        <div class="form-field"><label class="form-label">Convênio</label><div id="pront-conv" style="font-size:13px;padding:8px 0;">—</div></div>
+        <div class="form-field full"><label class="form-label">Endereço</label><div id="pront-endereco" style="font-size:13px;padding:8px 0;">—</div></div>
+        <div class="form-field full"><label class="form-label">Diagnóstico</label><div id="pront-diag" style="font-size:13px;padding:8px 0;">—</div></div>
+        <div class="form-field full"><label class="form-label">Observações</label><div id="pront-obs" style="font-size:13px;padding:8px 0;">—</div></div>
+      </div>
+    </div>
+    <div id="pr-evolucoes" style="display:none;"><div id="pront-evs"></div></div>
+    <div id="pr-receitas" style="display:none;"><div id="pront-recs"></div></div>
+    <div id="pr-exames" style="display:none;"><div id="pront-exms"></div></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="iniciarConsultaDoProntuario()">🩺 Iniciar Consulta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nova Receita -->
+<div class="modal-overlay" id="modal-nova-receita">
+  <div class="modal lg">
+    <div class="modal-title">💊 Receituário</div>
+    <div class="modal-sub">Prescrição médica com assinatura digital VIDaaS (ICP-Brasil).</div>
+
+    <div class="form-grid" style="margin-bottom:14px;">
+      <div class="form-field"><label class="form-label">Paciente *</label><select class="form-select" id="rec-pac"></select></div>
+      <div class="form-field"><label class="form-label">Tipo de Receita</label>
+        <select class="form-select" id="rec-tipo">
+          <option value="simples">Receita Simples</option>
+          <option value="azul">Receita Azul (Psicotrópicos B1)</option>
+          <option value="amarela">Receita Amarela (Controle especial A1/A2)</option>
+          <option value="branca2">Receita Branca (2 vias)</option>
+        </select>
+      </div>
+      <div class="form-field"><label class="form-label">Data</label><input class="form-input" id="rec-data" type="date"></div>
+      <div class="form-field"><label class="form-label">Validade</label>
+        <select class="form-select" id="rec-validade"><option>30 dias</option><option>60 dias</option><option>90 dias</option></select>
+      </div>
+    </div>
+
+    <div class="card" style="padding:14px;margin-bottom:12px;">
+      <div class="card-title">Adicionar Medicamento</div>
+      <div class="form-grid three">
+        <div class="form-field full"><label class="form-label">Medicamento / Concentração</label><input class="form-input" id="med-nome" placeholder="Ex: Sertralina 50mg"></div>
+        <div class="form-field"><label class="form-label">Quantidade</label><input class="form-input" id="med-qtd" placeholder="Ex: 30 comprimidos"></div>
+        <div class="form-field"><label class="form-label">Duração</label><input class="form-input" id="med-dur" placeholder="Ex: 30 dias"></div>
+        <div class="form-field full"><label class="form-label">Posologia</label><input class="form-input" id="med-pos" placeholder="Ex: 1 comprimido ao dia pela manhã"></div>
+      </div>
+      <div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="addMed()">➕ Adicionar à Receita</button></div>
+    </div>
+
+    <div id="med-list-preview" style="margin-bottom:12px;"></div>
+
+    <div class="form-field" style="margin-bottom:14px;"><label class="form-label">Observações / Orientações ao Paciente</label><textarea class="form-textarea" id="rec-obs" placeholder="Orientações adicionais, precauções..."></textarea></div>
+
+    <!-- VIDaaS signing block -->
+    <div class="vidaas-panel">
+      <div class="vidaas-header">
+        <div class="vidaas-logo">🔐</div>
+        <div>
+          <div class="vidaas-title">Assinatura Digital VIDaaS</div>
+          <div class="vidaas-sub">Certificado ICP-Brasil · CFM/CRM · Validade jurídica</div>
+        </div>
+      </div>
+      <div class="vidaas-steps">
+        <div class="vidaas-step"><div class="vidaas-step-num" id="vs1">1</div><div class="vidaas-step-text"><strong>Gerar PDF</strong> da receita com os dados preenchidos</div></div>
+        <div class="vidaas-step"><div class="vidaas-step-num" id="vs2">2</div><div class="vidaas-step-text"><strong>Solicitar assinatura</strong> via VIDaaS (push no celular ou QR Code)</div></div>
+        <div class="vidaas-step"><div class="vidaas-step-num" id="vs3">3</div><div class="vidaas-step-text"><strong>Confirmar no app VIDaaS</strong>: digitar senha do certificado</div></div>
+        <div class="vidaas-step"><div class="vidaas-step-num" id="vs4">4</div><div class="vidaas-step-text"><strong>PDF assinado</strong> com carimbo ICP-Brasil disponível para download</div></div>
+      </div>
+      <div class="vidaas-status" id="vidaas-rec-status">
+        <div class="vidaas-status-dot" style="background:#6b7280;"></div>
+        <div class="vidaas-status-text" id="vidaas-rec-status-text">Aguardando geração da receita</div>
+      </div>
+      <div id="vidaas-qr-area" style="display:none;">
+        <div class="qr-area">
+          <div class="qr-placeholder">📱</div>
+          <div class="qr-text">Escaneie com o <strong>app VIDaaS</strong> no celular<br>ou aguarde a <strong>notificação push</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-nova-receita')">Cancelar</button>
+      <button class="btn btn-amber" onclick="gerarPreviewReceita()">👁️ Prévia</button>
+      <button class="btn btn-blue" onclick="assinarVIDaaS('receita')">🔐 Assinar com VIDaaS</button>
+      <button class="btn btn-primary" onclick="emitirReceita()">📄 Emitir (sem assinatura digital)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Novo Pedido de Exames -->
+<div class="modal-overlay" id="modal-novo-exame">
+  <div class="modal lg">
+    <div class="modal-title">🔬 Pedido de Exames</div>
+    <div class="modal-sub">Solicitação com assinatura digital VIDaaS.</div>
+
+    <div class="form-grid" style="margin-bottom:14px;">
+      <div class="form-field"><label class="form-label">Paciente *</label><select class="form-select" id="ex-pac"></select></div>
+      <div class="form-field"><label class="form-label">Data</label><input class="form-input" id="ex-data" type="date"></div>
+      <div class="form-field full"><label class="form-label">Indicação Clínica / Hipótese Diagnóstica</label><input class="form-input" id="ex-indicacao" placeholder="Ex: Investigação de episódio depressivo — F32"></div>
+    </div>
+
+    <div class="card" style="padding:14px;margin-bottom:12px;">
+      <div class="card-title">Adicionar Exames</div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--smoke);margin-bottom:7px;text-transform:uppercase;">Grupos Frequentes em Psiquiatria</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="addExameGrupo('laboratorial')">🧪 Laboratorial</button>
+          <button class="btn btn-outline btn-sm" onclick="addExameGrupo('metabolismo')">⚗️ Metabolismo</button>
+          <button class="btn btn-outline btn-sm" onclick="addExameGrupo('tireoide')">🦋 Tireoide</button>
+          <button class="btn btn-outline btn-sm" onclick="addExameGrupo('imagem')">🧠 Neuroimagem</button>
+          <button class="btn btn-outline btn-sm" onclick="addExameGrupo('litio')">💊 Nível de Lítio</button>
+        </div>
+      </div>
+      <div class="form-grid" style="margin-bottom:8px;">
+        <div class="form-field full"><label class="form-label">Exame específico</label>
+          <div style="display:flex;gap:6px;">
+            <input class="form-input" id="ex-nome" placeholder="Nome do exame..." style="flex:1;">
+            <button class="btn btn-primary btn-sm" onclick="addExame()">➕</button>
+          </div>
+        </div>
+      </div>
+      <div id="ex-list" class="pill-row"></div>
+    </div>
+
+    <div class="form-field" style="margin-bottom:14px;"><label class="form-label">Urgência</label>
+      <select class="form-select" id="ex-urgencia" style="max-width:200px;"><option>Eletivo</option><option>Urgência</option><option>Emergência</option></select>
+    </div>
+    <div class="form-field" style="margin-bottom:14px;"><label class="form-label">Observações</label><textarea class="form-textarea" id="ex-obs" placeholder="Instruções ao paciente, preparo necessário..."></textarea></div>
+
+    <!-- VIDaaS -->
+    <div class="vidaas-panel">
+      <div class="vidaas-header">
+        <div class="vidaas-logo">🔐</div>
+        <div><div class="vidaas-title">Assinatura Digital VIDaaS</div><div class="vidaas-sub">Certificado ICP-Brasil · CFM/CRM</div></div>
+      </div>
+      <div class="vidaas-status" id="vidaas-ex-status">
+        <div class="vidaas-status-dot" style="background:#6b7280;"></div>
+        <div class="vidaas-status-text" id="vidaas-ex-status-text">Aguardando geração do pedido</div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-novo-exame')">Cancelar</button>
+      <button class="btn btn-blue" onclick="assinarVIDaaS('exame')">🔐 Assinar com VIDaaS</button>
+      <button class="btn btn-primary" onclick="emitirExame()">📄 Emitir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Assinar Consulta -->
+<div class="modal-overlay" id="modal-assinar">
+  <div class="modal">
+    <div class="modal-title">✍️ Assinar Evolução</div>
+    <div class="modal-sub">Confirme e assine digitalmente a evolução desta consulta.</div>
+    <div id="assinar-resumo" style="background:var(--sage-pale);border-radius:8px;padding:13px;font-size:12px;line-height:1.8;margin-bottom:16px;"></div>
+    <div class="vidaas-panel" style="margin-bottom:14px;">
+      <div class="vidaas-header">
+        <div class="vidaas-logo">🔐</div>
+        <div><div class="vidaas-title">VIDaaS — Assinatura ICP-Brasil</div><div class="vidaas-sub">Notificação enviada ao app no celular</div></div>
+      </div>
+      <div class="vidaas-status">
+        <div class="vidaas-status-dot" style="background:#f59e0b;"></div>
+        <div class="vidaas-status-text">Aguardando autorização no app VIDaaS</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--smoke);margin-bottom:6px;font-weight:700;">ASSINATURA MANUAL (alternativa)</div>
+    <div class="signature-wrap"><canvas class="sig-canvas" id="sig-canvas-assinar" height="100"></canvas></div>
+    <div class="sig-controls" style="margin-bottom:14px;">
+      <button class="btn btn-ghost btn-sm" onclick="clearSig('sig-canvas-assinar')">🗑️ Limpar</button>
+      <button class="btn btn-outline btn-sm" onclick="loadSavedSig()">📥 Carregar salva</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-assinar')">Cancelar</button>
+      <button class="btn btn-blue" onclick="assinarVIDaaS('evolucao')">🔐 Assinar com VIDaaS</button>
+      <button class="btn btn-primary" onclick="finalizeConsulta()">✅ Finalizar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Prévia do Documento -->
+<div class="modal-overlay" id="modal-preview">
+  <div class="modal lg" style="max-width:640px;">
+    <div class="modal-title" id="preview-title">Prévia do Documento</div>
+    <div style="overflow-y:auto;max-height:70vh;margin-bottom:14px;"><div id="preview-content"></div></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-preview')">Fechar</button>
+      <button class="btn btn-primary" onclick="imprimirDoc()">🖨️ Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIDaaS Auth Modal -->
+<div class="modal-overlay" id="modal-vidaas-auth">
+  <div class="modal">
+    <div class="modal-title">🔐 Autenticar no VIDaaS</div>
+    <div class="modal-sub">Certificado Digital ICP-Brasil — CFM/CRM</div>
+    <div class="highlight-box blue" style="margin-bottom:14px;">
+      O VIDaaS é o certificado digital em nuvem emitido pelo <strong>CFM/CRM gratuitamente</strong> para médicos brasileiros. A assinatura tem <strong>validade jurídica ICP-Brasil</strong>, equivalente à assinatura física.
+    </div>
+    <div class="vidaas-steps" style="margin-bottom:14px;">
+      <div class="vidaas-step" style="background:rgba(0,0,0,0.03);padding:8px;border-radius:7px;">
+        <div class="vidaas-step-num" style="background:var(--blue);color:#fff;">1</div>
+        <div class="vidaas-step-text" style="color:var(--ink-mid);">Abra o <strong>app VIDaaS</strong> no celular</div>
+      </div>
+      <div class="vidaas-step" style="background:rgba(0,0,0,0.03);padding:8px;border-radius:7px;">
+        <div class="vidaas-step-num" style="background:var(--blue);color:#fff;">2</div>
+        <div class="vidaas-step-text" style="color:var(--ink-mid);">Escaneie o QR Code abaixo <strong>ou</strong> aguarde a notificação push</div>
+      </div>
+      <div class="vidaas-step" style="background:rgba(0,0,0,0.03);padding:8px;border-radius:7px;">
+        <div class="vidaas-step-num" style="background:var(--blue);color:#fff;">3</div>
+        <div class="vidaas-step-text" style="color:var(--ink-mid);">Digite a <strong>senha do certificado</strong> e confirme</div>
+      </div>
+    </div>
+    <div class="qr-area" style="border:1px solid var(--line);border-radius:8px;">
+      <div class="qr-placeholder" style="font-size:56px;">⬜</div>
+      <div class="qr-text" style="color:var(--smoke);">QR Code gerado ao conectar com a API VIDaaS<br><small>(requer contrato com a Valid Certificadora)</small></div>
+    </div>
+    <div class="highlight-box" style="margin-top:12px;">
+      <strong>⚠️ Integração real com VIDaaS:</strong> Requer credenciais OAuth obtidas via contrato com a <a href="https://validcertificadora.com.br" target="_blank">Valid Certificadora</a> ou via CRM estadual. Configure as credenciais nas configurações do sistema ou use a assinatura manual como alternativa.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-vidaas-auth')">Fechar</button>
+      <button class="btn btn-blue" onclick="simularAutenticacaoVIDaaS()">✅ Simular Autenticação (demo)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notificação -->
+<div class="notification" id="notification"><span id="notif-icon"></span><span id="notif-text"></span></div>
+
+<script>
+// ─── STATE ───────────────────────────────────
+let S = {
+  pacientes: [], agendamentos: [], evolucoes: [],
+  receitas: [], pedidosExame: [], documentos: [],
+  config: {}, savedSig: null, currentPacId: null,
+  examesTemp: [], medsTemp: [],
+  vidaasSession: null
+};
+let recognition = null, isRecording = false, transcriptBuffer = '';
+let currentDocType = null;
+
+// ─── INIT ────────────────────────────────────
+function init() {
+  loadStorage();
+  initSig('sig-canvas-config');
+  initSig('sig-canvas-assinar');
+  setNow();
+  renderAll();
+  loadCfg();
+}
+
+function loadStorage() {
+  try { const d = localStorage.getItem('psychart2'); if (d) S = {...S, ...JSON.parse(d)}; } catch(e) {}
+}
+function save() { localStorage.setItem('psychart2', JSON.stringify(S)); }
+
+function loadCfg() {
+  const c = S.config || {};
+  ['nome','crm','cpf','esp','end','tel','email'].forEach(k => { const el = document.getElementById('cfg-'+k); if (el && c[k]) el.value = c[k]; });
+  if (c.apikey) document.getElementById('cfg-apikey').value = c.apikey;
+  if (c['vidaas-cpf']) document.getElementById('cfg-vidaas-cpf').value = c['vidaas-cpf'];
+  if (c['vidaas-lifetime']) document.getElementById('cfg-vidaas-lifetime').value = c['vidaas-lifetime'];
+  if (c.crm) document.getElementById('doc-crm').textContent = c.crm;
+  if (c.nome) {
+    document.getElementById('doc-name').textContent = c.nome;
+    document.getElementById('doc-avatar').textContent = c.nome.replace(/Dr[a]?\.\s*/,'')[0]?.toUpperCase() || 'N';
+  }
+}
+
+function saveConfig() {
+  S.config = {
+    nome: v('cfg-nome'), crm: v('cfg-crm'), cpf: v('cfg-cpf'),
+    esp: v('cfg-esp'), end: v('cfg-end'), tel: v('cfg-tel'), email: v('cfg-email'),
+    apikey: v('cfg-apikey'),
+    'vidaas-cpf': v('cfg-vidaas-cpf'),
+    'vidaas-lifetime': v('cfg-vidaas-lifetime')
+  };
+  save(); loadCfg(); notify('✅ Configurações salvas!');
+}
+function saveApiKey() { if(!S.config) S.config={}; S.config.apikey = v('cfg-apikey'); save(); notify('🔑 Chave API salva!'); }
+
+// ─── VIEWS ───────────────────────────────────
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-'+id)?.classList.add('active');
+  const titles = {dashboard:'Dashboard',pacientes:'Pacientes',agenda:'Agenda',consulta:'Nova Consulta',receituario:'Receituário',exames:'Pedido de Exames',documentos:'Documentos',configuracoes:'Configurações'};
+  document.getElementById('topbar-title').textContent = titles[id] || '';
+  const nav = {dashboard:0,pacientes:1,agenda:2,consulta:3,receituario:4,exames:5,documentos:6,configuracoes:7};
+  document.querySelectorAll('.nav-item')[nav[id]]?.classList.add('active');
+  if (id==='consulta') { populateSels(); setNow(); }
+  if (id==='dashboard') renderDash();
+  if (id==='agenda') renderAgenda();
+  if (id==='receituario') renderReceitas();
+  if (id==='exames') renderExames();
+  if (id==='documentos') renderDocs();
+}
+
+function setNow() {
+  const now = new Date(), l = new Date(now - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  const el = document.getElementById('consulta-datetime'); if(el) el.value = l;
+}
+
+// ─── PACIENTES ───────────────────────────────
+function savePaciente() {
+  const nome = v("p-nome").trim();
+  if (!nome) { notify("⚠️ Nome é obrigatório."); return; }
+  const nasc = v("p-nasc");
+  const endereco = { cep: v("p-cep"), rua: v("p-rua"), num: v("p-num"), comp: v("p-comp"), bairro: v("p-bairro"), cidade: v("p-cidade"), uf: v("p-uf") };
+  S.pacientes.push({ id: Date.now(), nome, nasc, idade: nasc ? calcIdade(nasc) : null, sexo: v("p-sexo"), cpf: v("p-cpf"), tel: v("p-tel"), email: v("p-email"), endereco, conv: v("p-conv"), diag: v("p-diag"), obs: v("p-obs") });
+  save(); closeModal("modal-paciente");
+  ["p-nome","p-nasc","p-cpf","p-tel","p-email","p-cep","p-rua","p-num","p-comp","p-bairro","p-cidade","p-conv","p-diag","p-obs"].forEach(id => { const el=document.getElementById(id); if(el) el.value=""; });
+  document.getElementById("p-sexo").value = "";
+  document.getElementById("p-uf").value = "SP";
+  renderPacientes(); populateSels(); renderDash();
+  notify("✅ Paciente cadastrado!");
+}
+
+function mascararCEP(el) {
+  let val = el.value.replace(/\D/g,"").slice(0,8);
+  if (val.length > 5) val = val.slice(0,5)+"-"+val.slice(5);
+  el.value = val;
+}
+
+async function buscarCEP() {
+  const cep = v("p-cep").replace(/\D/g,"");
+  if (cep.length !== 8) { notify("⚠️ Digite um CEP válido com 8 dígitos."); return; }
+  notify("🔍 Buscando CEP...");
+  try {
+    const r = await fetch("/api/cep/"+cep);
+    const d = await r.json();
+    if (d.erro) { notify("⚠️ CEP não encontrado."); return; }
+    document.getElementById("p-rua").value = d.logradouro || "";
+    document.getElementById("p-bairro").value = d.bairro || "";
+    document.getElementById("p-cidade").value = d.localidade || "";
+    document.getElementById("p-uf").value = d.uf || "SP";
+    document.getElementById("p-num").focus();
+    notify("✅ Endereço preenchido!");
+  } catch(e) { notify("❌ Erro ao buscar CEP."); }
+}
+
+function calcIdade(nasc) { const h=new Date(),d=new Date(nasc); let a=h.getFullYear()-d.getFullYear(); if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--; return a; }
+
+function renderPacientes(f='') {
+  const g = document.getElementById('patient-grid');
+  let lista = S.pacientes;
+  if (f) { const fl=f.toLowerCase(); lista=lista.filter(p=>p.nome.toLowerCase().includes(fl)||(p.cpf||'').includes(fl)||(p.diag||'').toLowerCase().includes(fl)); }
+  g.innerHTML = !lista.length ? '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">👥</div><p>Nenhum paciente.</p></div>'
+    : lista.map(p=>`<div class="patient-card" onclick="openProntuario(${p.id})">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div class="patient-avatar">${p.nome[0].toUpperCase()}</div>
+        <div><div class="patient-name">${p.nome}</div><div class="patient-meta">${[p.idade?p.idade+' anos':'',p.sexo,p.cpf?'CPF '+p.cpf:''].filter(Boolean).join(' · ')}</div></div>
+      </div>
+      ${p.diag?`<span class="patient-tag">${p.diag}</span>`:''}
+      ${p.conv?`<span class="patient-tag" style="background:var(--amber-pale);color:#92400E;">${p.conv}</span>`:''}
+    </div>`).join('');
+}
+
+function populateSels() {
+  ['consulta-paciente','ag-pac','rec-pac','ex-pac'].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    const prev = el.value;
+    el.innerHTML = '<option value="">Selecionar...</option>' + S.pacientes.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+    if (prev) el.value = prev;
+  });
+}
+
+function openProntuario(id) {
+  const p = S.pacientes.find(x=>x.id===id); if (!p) return;
+  S.currentPacId = id;
+  document.getElementById('pront-id').textContent = 'ID #'+p.id;
+  document.getElementById('pront-nome').textContent = p.nome;
+  document.getElementById('pront-meta').textContent = [p.idade?p.idade+' anos':'',p.sexo,p.nasc?'Nasc. '+fmtD(p.nasc):''].filter(Boolean).join(' · ');
+  ['cpf','tel','email'].forEach(k=>{ document.getElementById('pront-'+k).textContent = p[k]||'—'; });
+  document.getElementById('pront-conv').textContent = p.conv||'—';
+  document.getElementById('pront-diag').textContent = p.diag||'—';
+  document.getElementById('pront-obs').textContent = p.obs||'—';
+  const end = p.endereco; document.getElementById('pront-endereco').textContent = end && (end.rua||end.cidade) ? [end.rua, end.num, end.comp, end.bairro, end.cidade, end.uf, end.cep].filter(Boolean).join(', ') : '—';
+
+  const evs = S.evolucoes.filter(e=>e.pacId===id);
+  document.getElementById('pront-evs').innerHTML = evs.length ? evs.map(e=>`<div class="evolucao-item"><div class="evolucao-date">📅 ${fmtDT(e.data)} — ${e.tipo}</div><div class="evolucao-text">${e.evolucao||e.aiSummary||'—'}</div>${e.assinada?'<div class="evolucao-assinada">✅ Assinado'+( e.vidaas ? ' digitalmente (VIDaaS ICP-Brasil)' : ' manualmente')+'</div>':''}</div>`).join('')
+    : '<div class="empty-state"><div class="empty-icon">📝</div><p>Sem evoluções.</p></div>';
+
+  const recs = S.receitas.filter(r=>r.pacId===id);
+  document.getElementById('pront-recs').innerHTML = recs.length ? recs.map(r=>`<div class="doc-item"><div class="doc-item-main"><div class="doc-item-name">💊 Receita ${r.tipo} — ${fmtD(r.data)}</div><div class="doc-item-sub">${r.meds.map(m=>m.nome).join(', ')}</div></div><div class="doc-item-actions">${r.assinadaVidaas?'<span class="vidaas-badge">🔐 VIDaaS</span>':''}</div></div>`).join('')
+    : '<div class="empty-state"><div class="empty-icon">💊</div><p>Sem receitas.</p></div>';
+
+  const exs = S.pedidosExame.filter(e=>e.pacId===id);
+  document.getElementById('pront-exms').innerHTML = exs.length ? exs.map(e=>`<div class="doc-item"><div class="doc-item-main"><div class="doc-item-name">🔬 Pedido de Exames — ${fmtD(e.data)}</div><div class="doc-item-sub">${e.exames.join(', ')}</div></div><div class="doc-item-actions">${e.assinadaVidaas?'<span class="vidaas-badge">🔐 VIDaaS</span>':''}</div></div>`).join('')
+    : '<div class="empty-state"><div class="empty-icon">🔬</div><p>Sem pedidos.</p></div>';
+
+  document.getElementById('pr-dados').style.display='';
+  ['pr-evolucoes','pr-receitas','pr-exames'].forEach(id=>document.getElementById(id).style.display='none');
+  openModal('modal-prontuario');
+}
+
+function iniciarConsultaDoProntuario() {
+  closeModal('modal-prontuario'); showView('consulta');
+  setTimeout(()=>{ const el=document.getElementById('consulta-paciente'); if(el) el.value=S.currentPacId; },100);
+}
+
+// ─── AGENDA ──────────────────────────────────
+function saveAgendamento() {
+  const pacId = v('ag-pac'), dt = v('ag-dt');
+  if (!pacId || !dt) { notify('⚠️ Selecione paciente e data/hora.'); return; }
+  const p = S.pacientes.find(x=>x.id==pacId);
+  S.agendamentos.push({ id: Date.now(), pacId: +pacId, pacNome: p?.nome||'—', datetime: dt, tipo: v('ag-tipo'), obs: v('ag-obs') });
+  save(); closeModal('modal-agendamento'); renderAgenda(); renderDash(); notify('📅 Consulta agendada!');
+}
+
+function renderAgenda() {
+  const el = document.getElementById('agenda-list');
+  const ags = [...S.agendamentos].sort((a,b)=>new Date(a.datetime)-new Date(b.datetime));
+  el.innerHTML = ags.length ? ags.map(a=>`<div class="agenda-slot confirmed"><div class="agenda-time">${fmtT(a.datetime)}</div><div style="flex:1;"><div class="agenda-patient-name">${a.pacNome}</div><div class="agenda-type">${a.tipo} · ${fmtD(a.datetime.split('T')[0])}</div></div><span class="badge badge-green">Confirmado</span></div>`).join('')
+    : '<div class="empty-state"><div class="empty-icon">📅</div><p>Sem consultas.</p></div>';
+}
+
+// ─── DASHBOARD ───────────────────────────────
+function renderDash() {
+  document.getElementById('stat-pacientes').textContent = S.pacientes.length;
+  const hoje = new Date().toDateString();
+  document.getElementById('stat-hoje').textContent = S.agendamentos.filter(a=>new Date(a.datetime).toDateString()===hoje).length;
+  document.getElementById('stat-receitas').textContent = S.receitas.length;
+  document.getElementById('stat-assinados').textContent = [...S.receitas, ...S.pedidosExame, ...S.evolucoes].filter(d=>d.assinadaVidaas||d.vidaas).length;
+
+  const ags = [...S.agendamentos].sort((a,b)=>new Date(a.datetime)-new Date(b.datetime)).slice(0,4);
+  document.getElementById('dash-agenda').innerHTML = ags.length ? ags.map(a=>`<div class="agenda-slot" style="margin-bottom:7px;"><div class="agenda-time">${fmtT(a.datetime)}</div><div style="flex:1;"><div class="agenda-patient-name">${a.pacNome}</div><div class="agenda-type">${a.tipo}</div></div></div>`).join('') : '<div class="empty-state" style="padding:20px;"><div class="empty-icon">📅</div><p>Nenhuma.</p></div>';
+
+  const pacs = [...S.pacientes].reverse().slice(0,5);
+  document.getElementById('dash-pacientes').innerHTML = pacs.length ? pacs.map(p=>`<div class="agenda-slot" style="cursor:pointer;margin-bottom:7px;" onclick="openProntuario(${p.id})"><div class="patient-avatar" style="width:32px;height:32px;font-size:12px;">${p.nome[0].toUpperCase()}</div><div style="flex:1;"><div class="agenda-patient-name">${p.nome}</div><div class="agenda-type">${p.diag||'Sem diagnóstico'}</div></div></div>`).join('') : '<div class="empty-state" style="padding:20px;"><div class="empty-icon">👥</div><p>Nenhum.</p></div>';
+}
+
+function renderAll() { renderPacientes(); renderAgenda(); renderDash(); populateSels(); renderReceitas(); renderExames(); renderDocs(); }
+
+// ─── CONSULTA ────────────────────────────────
+function prepAssinar() {
+  const pacId = v('consulta-paciente');
+  const pac = S.pacientes.find(p=>p.id==pacId);
+  document.getElementById('assinar-resumo').innerHTML = `
+    <strong>Paciente:</strong> ${pac?.nome||'(não selecionado)'}<br>
+    <strong>Data:</strong> ${fmtDT(v('consulta-datetime'))}<br>
+    <strong>Tipo:</strong> ${v('consulta-tipo')} · ${v('consulta-mod')}<br>
+    <strong>Queixa:</strong> ${v('queixa')||'—'}<br>
+    <strong>Conduta:</strong> ${v('evolucao')||'—'}<br>
+    <strong>CID:</strong> ${v('cid')||'—'}
+  `;
+  openModal('modal-assinar');
+  setTimeout(()=>initSig('sig-canvas-assinar'),60);
+}
+
+function finalizeConsulta() {
+  const pacId = v('consulta-paciente');
+  if (!pacId) { notify('⚠️ Selecione um paciente.'); return; }
+  S.evolucoes.push({
+    id: Date.now(), pacId: +pacId,
+    data: v('consulta-datetime')||new Date().toISOString(),
+    tipo: v('consulta-tipo'), modalidade: v('consulta-mod'),
+    queixa: v('queixa'), hda: v('hda'), evolucao: v('evolucao'),
+    cid: v('cid'), hipotese: v('hipotese'),
+    exame: { humor: v('humor'), afeto: v('afeto'), insight: v('insight') },
+    aiSummary: document.getElementById('ai-summary-text').textContent||'',
+    transcript: transcriptBuffer,
+    assinada: true, assinadaEm: new Date().toISOString(),
+    vidaas: false, crm: S.config.crm||''
+  });
+  save(); closeModal('modal-assinar'); renderDash();
+  transcriptBuffer='';
+  document.getElementById('transcript-area').innerHTML='<em>Pronto para nova consulta...</em>';
+  document.getElementById('ai-summary-box').style.display='none';
+  notify('✅ Evolução assinada e salva!');
+}
+
+// ─── RECEITUÁRIO ─────────────────────────────
+function abrirReceituarioRapido() {
+  populateSels();
+  const pacId = v('consulta-paciente');
+  openModal('modal-nova-receita');
+  if (pacId) { setTimeout(()=>{ document.getElementById('rec-pac').value=pacId; },100); }
+  document.getElementById('rec-data').value = new Date().toISOString().split('T')[0];
+  S.medsTemp = []; renderMedList();
+}
+
+function addMed() {
+  const nome = v('med-nome').trim();
+  if (!nome) { notify('⚠️ Informe o medicamento.'); return; }
+  S.medsTemp.push({ id: Date.now(), nome, qtd: v('med-qtd'), dur: v('med-dur'), pos: v('med-pos') });
+  ['med-nome','med-qtd','med-dur','med-pos'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  renderMedList();
+}
+
+function renderMedList() {
+  const el = document.getElementById('med-list-preview');
+  el.innerHTML = S.medsTemp.length ? S.medsTemp.map((m,i)=>`<div class="doc-item"><div class="doc-item-main"><div class="doc-item-name">💊 ${m.nome} ${m.qtd?'· '+m.qtd:''}</div><div class="doc-item-sub">${m.pos||''}${m.dur?' · '+m.dur:''}</div></div><button class="doc-remove" onclick="removeMed(${i})">✕</button></div>`).join('')
+    : '<div style="font-size:12px;color:var(--smoke);padding:10px 0;">Nenhum medicamento adicionado.</div>';
+}
+
+function removeMed(i) { S.medsTemp.splice(i,1); renderMedList(); }
+
+function emitirReceita(vidaas=false) {
+  const pacId = v('rec-pac');
+  if (!pacId) { notify('⚠️ Selecione o paciente.'); return; }
+  if (!S.medsTemp.length) { notify('⚠️ Adicione pelo menos um medicamento.'); return; }
+  const rec = {
+    id: Date.now(), pacId: +pacId,
+    pacNome: S.pacientes.find(p=>p.id==pacId)?.nome||'—',
+    tipo: document.getElementById('rec-tipo').options[document.getElementById('rec-tipo').selectedIndex].text,
+    data: v('rec-data')||new Date().toISOString().split('T')[0],
+    validade: v('rec-validade'), obs: v('rec-obs'),
+    meds: [...S.medsTemp], crm: S.config.crm||'', medico: S.config.nome||'',
+    emitidaEm: new Date().toISOString(), assinadaVidaas: vidaas
+  };
+  S.receitas.push(rec);
+  S.documentos.push({ id: rec.id, tipo: 'Receita', subtipo: rec.tipo, pacNome: rec.pacNome, data: rec.data, assinadaVidaas: vidaas });
+  S.medsTemp = []; renderMedList();
+  save(); closeModal('modal-nova-receita'); renderReceitas(); renderDash();
+  notify(vidaas ? '🔐 Receita assinada com VIDaaS e emitida!' : '📄 Receita emitida!');
+  gerarPDFReceita(rec);
+}
+
+function renderReceitas() {
+  const el = document.getElementById('receitas-list');
+  el.innerHTML = S.receitas.length ? S.receitas.map(r=>`<div class="doc-item"><div class="doc-item-main"><div class="doc-item-name">💊 ${r.tipo} — ${r.pacNome}</div><div class="doc-item-sub">${fmtD(r.data)} · ${r.meds.length} medicamento(s): ${r.meds.map(m=>m.nome).join(', ')}</div></div><div class="doc-item-actions">${r.assinadaVidaas?'<span class="vidaas-badge">🔐 VIDaaS</span>':''}<button class="btn btn-outline btn-sm" onclick="gerarPDFReceita(S.receitas.find(x=>x.id==${r.id}))">🖨️</button></div></div>`).join('')
+    : '<div class="empty-state"><div class="empty-icon">💊</div><p>Nenhuma receita emitida.</p></div>';
+}
+
+// ─── PEDIDO DE EXAMES ────────────────────────
+function abrirExamesRapido() {
+  populateSels();
+  const pacId = v('consulta-paciente');
+  S.examesTemp = []; renderExList();
+  openModal('modal-novo-exame');
+  if (pacId) setTimeout(()=>{ document.getElementById('ex-pac').value=pacId; },100);
+  document.getElementById('ex-data').value = new Date().toISOString().split('T')[0];
+}
+
+const gruposExames = {
+  laboratorial: ['Hemograma completo','VHS','PCR','Glicemia de jejum','HbA1c','Ureia','Creatinina','TGO/TGP','Bilirrubinas'],
+  metabolismo: ['Triglicerídeos','Colesterol total e frações','HDL','LDL','Ácido úrico','Insulina'],
+  tireoide: ['TSH','T4 livre','T3'],
+  imagem: ['Eletroencefalograma (EEG)','TC de crânio sem contraste','RM de encéfalo'],
+  litio: ['Lítio sérico (nível plasmático)']
+};
+
+function addExameGrupo(grupo) {
+  gruposExames[grupo]?.forEach(e=>{ if(!S.examesTemp.includes(e)) S.examesTemp.push(e); });
+  renderExList();
+}
+
+function addExame() {
+  const nome = v('ex-nome').trim();
+  if (!nome) return;
+  if (!S.examesTemp.includes(nome)) S.examesTemp.push(nome);
+  document.getElementById('ex-nome').value = '';
+  renderExList();
+}
+
+function removeExame(nome) { S.examesTemp = S.examesTemp.filter(e=>e!==nome); renderExList(); }
+
+function renderExList() {
+  const el = document.getElementById('ex-list');
+  el.innerHTML = S.examesTemp.map(e=>`<span class="pill">${e}<button onclick="removeExame('${e.replace(/'/g,"\\'")}')">✕</button></span>`).join('');
+}
+
+function emitirExame(vidaas=false) {
+  const pacId = v('ex-pac');
+  if (!pacId) { notify('⚠️ Selecione o paciente.'); return; }
+  if (!S.examesTemp.length) { notify('⚠️ Adicione pelo menos um exame.'); return; }
+  const ex = {
+    id: Date.now(), pacId: +pacId,
+    pacNome: S.pacientes.find(p=>p.id==pacId)?.nome||'—',
+    data: v('ex-data')||new Date().toISOString().split('T')[0],
+    indicacao: v('ex-indicacao'), urgencia: v('ex-urgencia'), obs: v('ex-obs'),
+    exames: [...S.examesTemp], crm: S.config.crm||'', medico: S.config.nome||'',
+    emitidoEm: new Date().toISOString(), assinadaVidaas: vidaas
+  };
+  S.pedidosExame.push(ex);
+  S.documentos.push({ id: ex.id, tipo: 'Pedido de Exames', pacNome: ex.pacNome, data: ex.data, assinadaVidaas: vidaas });
+  S.examesTemp = []; renderExList();
+  save(); closeModal('modal-novo-exame'); renderExames(); renderDash();
+  notify(vidaas ? '🔐 Pedido assinado com VIDaaS!' : '📄 Pedido de exames emitido!');
+  gerarPDFExame(ex);
+}
+
+function renderExames() {
+  const el = document.getElementById('exames-list');
+  el.innerHTML = S.pedidosExame.length ? S.pedidosExame.map(e=>`<div class="doc-item"><div class="doc-item-main"><div class="doc-item-name">🔬 Pedido de Exames — ${e.pacNome}</div><div class="doc-item-sub">${fmtD(e.data)} · ${e.exames.length} exame(s) · ${e.urgencia}</div></div><div class="doc-item-actions">${e.assinadaVidaas?'<span class="vidaas-badge">🔐 VIDaaS</span>':''}<button class="btn btn-outline btn-sm" onclick="gerarPDFExame(S.pedidosExame.find(x=>x.id==${e.id}))">🖨️</button></div></div>`).join('')
+    : '<div class="empty-state"><div class="empty-icon">🔬</div><p>Nenhum pedido emitido.</p></div>';
+}
+
+function renderDocs() {
+  const el = document.getElementById('docs-list');
+  el.innerHTML = S.documentos.length ? [...S.documentos].reverse().map(d=>`<div class="doc-item"><div class="doc-item-main"><div class="doc-item-name">${d.tipo==='Receita'?'💊':'🔬'} ${d.tipo}${d.subtipo?' — '+d.subtipo:''}</div><div class="doc-item-sub">${d.pacNome} · ${fmtD(d.data)}</div></div>${d.assinadaVidaas?'<span class="vidaas-badge">🔐 VIDaaS</span>':''}</div>`).join('')
+    : '<div class="empty-state"><div class="empty-icon">📄</div><p>Nenhum documento.</p></div>';
+}
+
+// ─── PRÉVIA RECEITA ───────────────────────────
+function gerarPreviewReceita() {
+  const pacId = v('rec-pac'), pac = S.pacientes.find(p=>p.id==pacId);
+  const tipoSel = document.getElementById('rec-tipo');
+  const tipo = tipoSel.options[tipoSel.selectedIndex].text;
+  const corTipo = { 'Receita Azul':'#1d4ed8', 'Receita Amarela':'#d97706', 'Receita Simples':'#1C2B2A', 'Receita Branca (2 vias)':'#1C2B2A' };
+  const html = gerarHTMLDocumento('receita', { pac, tipo, corTipo, meds: S.medsTemp, data: v('rec-data'), obs: v('rec-obs'), validade: v('rec-validade') });
+  document.getElementById('preview-title').textContent = tipo;
+  document.getElementById('preview-content').innerHTML = html;
+  openModal('modal-preview');
+}
+
+function gerarHTMLDocumento(docType, data) {
+  const cfg = S.config || {};
+  const cor = data.corTipo?.[data.tipo] || '#1C2B2A';
+  if (docType === 'receita') {
+    return `<div class="doc-preview">
+      <div class="doc-header">
+        <div class="doc-type" style="color:${cor};">${data.tipo}</div>
+        <h2>${cfg.nome || 'Dra. Nathany Ellen Silva Teixeira'}</h2>
+        <div class="doc-crm">${cfg.esp||'Psiquiatria'} · ${cfg.crm||'CRM-SP'} · ${cfg.tel||''}</div>
+        <div class="doc-crm">${cfg.end||''}</div>
+      </div>
+      <div class="doc-patient">
+        <strong>Paciente:</strong> ${data.pac?.nome||'—'} &nbsp;&nbsp; <strong>Data:</strong> ${fmtD(data.data)} &nbsp;&nbsp; <strong>Validade:</strong> ${data.validade}
+      </div>
+      <ol class="doc-item-list">
+        ${data.meds.map(m=>`<li><strong>${m.nome}</strong>${m.qtd?' — '+m.qtd:''}<br><em>${m.pos||''}${m.dur?' · '+m.dur:''}</em></li>`).join('')}
+      </ol>
+      ${data.obs?`<p style="margin-top:10px;font-size:12px;color:var(--smoke);">Obs.: ${data.obs}</p>`:''}
+      <div class="doc-footer">
+        <div style="font-size:11px;color:var(--smoke);">Emitido em ${new Date().toLocaleDateString('pt-BR')}</div>
+        <div class="sig-block">
+          <div class="sig-line"></div>
+          <div class="sig-name">${cfg.nome||'Dra. Nathany'}</div>
+          <div class="sig-crm">${cfg.crm||'CRM-SP'}</div>
+          <div style="margin-top:5px;"><span class="vidaas-badge">🔐 Assinado VIDaaS ICP-Brasil</span></div>
+        </div>
+      </div>
+    </div>`;
+  }
+  if (docType === 'exame') {
+    return `<div class="doc-preview">
+      <div class="doc-header">
+        <div class="doc-type">SOLICITAÇÃO DE EXAMES</div>
+        <h2>${cfg.nome||'Dra. Nathany Ellen Silva Teixeira'}</h2>
+        <div class="doc-crm">${cfg.esp||'Psiquiatria'} · ${cfg.crm||'CRM-SP'} · ${cfg.tel||''}</div>
+        <div class="doc-crm">${cfg.end||''}</div>
+      </div>
+      <div class="doc-patient">
+        <strong>Paciente:</strong> ${data.pac?.nome||'—'} &nbsp;&nbsp; <strong>Data:</strong> ${fmtD(data.data)} &nbsp;&nbsp; <strong>Urgência:</strong> ${data.urgencia}
+      </div>
+      ${data.indicacao?`<p style="margin-bottom:10px;font-size:12px;"><strong>Indicação Clínica:</strong> ${data.indicacao}</p>`:''}
+      <ul class="doc-item-list">
+        ${data.exames.map(e=>`<li>${e}</li>`).join('')}
+      </ul>
+      ${data.obs?`<p style="margin-top:10px;font-size:12px;color:var(--smoke);">Obs.: ${data.obs}</p>`:''}
+      <div class="doc-footer">
+        <div style="font-size:11px;color:var(--smoke);">Emitido em ${new Date().toLocaleDateString('pt-BR')}</div>
+        <div class="sig-block">
+          <div class="sig-line"></div>
+          <div class="sig-name">${cfg.nome||'Dra. Nathany'}</div>
+          <div class="sig-crm">${cfg.crm||'CRM-SP'}</div>
+          <div style="margin-top:5px;"><span class="vidaas-badge">🔐 Assinado VIDaaS ICP-Brasil</span></div>
+        </div>
+      </div>
+    </div>`;
+  }
+  return '';
+}
+
+// ─── PDF GENERATION ──────────────────────────
+function gerarPDFReceita(rec) {
+  const win = window.open('','_blank');
+  const html = gerarHTMLDocumento('receita', {
+    pac: { nome: rec.pacNome }, tipo: rec.tipo,
+    corTipo: { [rec.tipo]: '#1C2B2A' },
+    meds: rec.meds, data: rec.data, obs: rec.obs, validade: rec.validade
+  });
+  win.document.write(`<!DOCTYPE html><html><head><title>${rec.tipo}</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:680px;margin:30px auto;padding:20px;}
+    .doc-preview{padding:0} .doc-header{text-align:center;border-bottom:2px solid #000;padding-bottom:14px;margin-bottom:16px;}
+    .doc-type{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#555;margin-bottom:3px;}
+    h2{font-size:18px;margin-bottom:3px;} .doc-crm{font-size:11px;color:#666;}
+    .doc-patient{background:#f0f7f5;border-radius:5px;padding:9px 12px;margin:12px 0;font-size:12px;}
+    ol{padding-left:16px;margin:10px 0;} li{margin-bottom:12px;font-size:13px;}
+    .doc-footer{margin-top:50px;border-top:1px solid #ccc;padding-top:10px;display:flex;justify-content:space-between;align-items:flex-end;}
+    .sig-block{text-align:center;} .sig-line{width:180px;border-top:1px solid #000;margin-bottom:4px;}
+    .sig-name{font-size:11px;font-weight:700;} .sig-crm{font-size:10px;color:#666;}
+    .vidaas-badge{display:inline-block;background:#0f2027;color:#4ade80;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px;}
+    @media print{body{margin:0;padding:15px;}}
+  </style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);
+}
+
+function gerarPDFExame(ex) {
+  const win = window.open('','_blank');
+  const html = gerarHTMLDocumento('exame', {
+    pac: { nome: ex.pacNome }, data: ex.data,
+    indicacao: ex.indicacao, urgencia: ex.urgencia,
+    exames: ex.exames, obs: ex.obs
+  });
+  win.document.write(`<!DOCTYPE html><html><head><title>Pedido de Exames</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:680px;margin:30px auto;padding:20px;}
+    .doc-preview{padding:0} .doc-header{text-align:center;border-bottom:2px solid #000;padding-bottom:14px;margin-bottom:16px;}
+    .doc-type{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#555;margin-bottom:3px;}
+    h2{font-size:18px;margin-bottom:3px;} .doc-crm{font-size:11px;color:#666;}
+    .doc-patient{background:#f0f7f5;border-radius:5px;padding:9px 12px;margin:12px 0;font-size:12px;}
+    ul{padding-left:16px;margin:10px 0;} li{margin-bottom:8px;font-size:13px;}
+    .doc-footer{margin-top:50px;border-top:1px solid #ccc;padding-top:10px;display:flex;justify-content:space-between;align-items:flex-end;}
+    .sig-block{text-align:center;} .sig-line{width:180px;border-top:1px solid #000;margin-bottom:4px;}
+    .sig-name{font-size:11px;font-weight:700;} .sig-crm{font-size:10px;color:#666;}
+    .vidaas-badge{display:inline-block;background:#0f2027;color:#4ade80;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px;}
+    @media print{body{margin:0;padding:15px;}}
+  </style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);
+}
+
+function imprimirDoc() { window.print(); }
+
+// ─── VIDAAS ──────────────────────────────────
+function autenticarVIDaaS() { openModal('modal-vidaas-auth'); }
+
+function simularAutenticacaoVIDaaS() {
+  // Simulação - na integração real usa OAuth PKCE com Valid API
+  S.vidaasSession = { token: 'sim_'+Date.now(), expiresAt: Date.now() + 8*3600*1000, cpf: S.config?.['vidaas-cpf']||'' };
+  save();
+  closeModal('modal-vidaas-auth');
+  document.getElementById('vidaas-session-status').innerHTML = '<span style="color:var(--sage);">🟢 Sessão VIDaaS ativa · Expira em 8 horas</span>';
+  notify('🔐 VIDaaS autenticado! (modo demonstração)');
+}
+
+function verificarSessaoVIDaaS() {
+  if (!S.vidaasSession) { document.getElementById('vidaas-session-status').innerHTML = '<span style="color:var(--red);">🔴 Nenhuma sessão ativa. Clique em "Autenticar no VIDaaS".</span>'; return; }
+  const restante = Math.max(0, S.vidaasSession.expiresAt - Date.now());
+  const horas = Math.floor(restante/3600000), min = Math.floor((restante%3600000)/60000);
+  document.getElementById('vidaas-session-status').innerHTML = restante > 0
+    ? `<span style="color:var(--sage);">🟢 Sessão ativa · ${horas}h ${min}min restantes</span>`
+    : '<span style="color:var(--red);">🔴 Sessão expirada. Autentique novamente.</span>';
+}
+
+function assinarVIDaaS(tipo) {
+  if (!S.vidaasSession || S.vidaasSession.expiresAt < Date.now()) {
+    notify('⚠️ Autentique no VIDaaS primeiro (Configurações → VIDaaS).');
+    openModal('modal-vidaas-auth'); return;
+  }
+
+  // Simular fluxo de assinatura
+  const statusEl = document.getElementById(tipo==='receita' ? 'vidaas-rec-status' : tipo==='exame' ? 'vidaas-ex-status' : null);
+  const statusText = document.getElementById(tipo==='receita' ? 'vidaas-rec-status-text' : tipo==='exame' ? 'vidaas-ex-status-text' : null);
+
+  if (statusEl) {
+    statusEl.querySelector('.vidaas-status-dot').style.background = '#f59e0b';
+    if (statusText) statusText.textContent = 'Aguardando confirmação no app VIDaaS...';
+  }
+
+  notify('📱 Notificação enviada ao app VIDaaS. Confirme no celular...');
+
+  // Simular resposta após 2s
+  setTimeout(() => {
+    if (statusEl) {
+      statusEl.querySelector('.vidaas-status-dot').style.background = '#4ade80';
+      if (statusText) statusText.textContent = '✅ Assinado com sucesso — ICP-Brasil';
+    }
+    if (tipo === 'receita') emitirReceita(true);
+    else if (tipo === 'exame') emitirExame(true);
+    else if (tipo === 'evolucao') {
+      const pacId = v('consulta-paciente');
+      if (!pacId) { notify('⚠️ Selecione um paciente.'); return; }
+      S.evolucoes.push({
+        id: Date.now(), pacId: +pacId,
+        data: v('consulta-datetime')||new Date().toISOString(),
+        tipo: v('consulta-tipo'), evolucao: v('evolucao'), cid: v('cid'),
+        aiSummary: document.getElementById('ai-summary-text').textContent||'',
+        transcript: transcriptBuffer, assinada: true, vidaas: true,
+        assinadaEm: new Date().toISOString(), crm: S.config.crm||''
+      });
+      save(); closeModal('modal-assinar'); renderDash();
+      transcriptBuffer=''; document.getElementById('ai-summary-box').style.display='none';
+      notify('🔐 Evolução assinada digitalmente com VIDaaS!');
+    }
+  }, 2000);
+}
+
+// ─── SPEECH ──────────────────────────────────
+function toggleRecording() { isRecording ? stopRec() : startRec(); }
+
+function startRec() {
+  const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+  if (!SR) { notify('⚠️ Use Chrome para reconhecimento de voz.'); return; }
+  recognition = new SR(); recognition.lang='pt-BR'; recognition.continuous=true; recognition.interimResults=true;
+  recognition.onstart = ()=>{ isRecording=true; document.getElementById('mic-btn').classList.add('recording'); document.getElementById('mic-label').textContent='Parar Gravação'; };
+  recognition.onresult = e => {
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) transcriptBuffer+=e.results[i][0].transcript+' ';
+      else interim=e.results[i][0].transcript;
+    }
+    const ta=document.getElementById('transcript-area');
+    ta.innerHTML=transcriptBuffer+(interim?`<span style="color:var(--smoke);font-style:italic;">${interim}</span>`:'');
+    ta.scrollTop=ta.scrollHeight;
+  };
+  recognition.onerror=e=>{ if(e.error!=='no-speech') notify('⚠️ Erro mic: '+e.error); };
+  recognition.onend=()=>{ if(isRecording) recognition.start(); };
+  recognition.start();
+}
+
+function stopRec() {
+  if(recognition) recognition.stop();
+  isRecording=false;
+  document.getElementById('mic-btn').classList.remove('recording');
+  document.getElementById('mic-label').textContent='Iniciar Gravação';
+  if(transcriptBuffer.trim()) generateAISummary();
+}
+
+async function generateAISummary() {
+  if (!transcriptBuffer.trim()) { notify('⚠️ Nenhuma transcrição disponível.'); return; }
+  document.getElementById('ai-thinking').style.display='flex';
+  document.getElementById('ai-summary-box').style.display='none';
+  try {
+    const resp = await fetch('/api/ai/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: transcriptBuffer })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    const summ = data.summary || 'Erro ao gerar resumo.';
+    document.getElementById('ai-summary-text').textContent = summ;
+    document.getElementById('ai-summary-box').style.display = 'block';
+    if (!v('evolucao')) document.getElementById('evolucao').value = summ;
+  } catch(e) { notify('❌ Erro IA: ' + e.message); }
+  finally { document.getElementById('ai-thinking').style.display = 'none'; }
+}
+
+// ─── ASSINATURA ──────────────────────────────
+function initSig(id) {
+  const c=document.getElementById(id); if(!c) return;
+  c.width=c.offsetWidth||460; c.height=110;
+  const ctx=c.getContext('2d'); ctx.strokeStyle='#1C2B2A'; ctx.lineWidth=2; ctx.lineCap='round';
+  let drawing=false,lx=0,ly=0;
+  function pos(e){const r=c.getBoundingClientRect(),s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left)*(c.width/r.width),y:(s.clientY-r.top)*(c.height/r.height)};}
+  c.onmousedown=e=>{drawing=true;const p=pos(e);lx=p.x;ly=p.y;};
+  c.onmousemove=e=>{if(!drawing)return;const p=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;};
+  c.onmouseup=c.onmouseleave=()=>drawing=false;
+  c.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;const p=pos(e);lx=p.x;ly=p.y;},{passive:false});
+  c.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const p=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p.x,p.y);ctx.stroke();lx=p.x;ly=p.y;},{passive:false});
+  c.addEventListener('touchend',()=>drawing=false);
+}
+
+function clearSig(id){const c=document.getElementById(id);if(c){const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);}}
+function saveSig(){const c=document.getElementById('sig-canvas-config');if(c){S.savedSig=c.toDataURL();save();notify('✅ Assinatura salva!');}}
+function loadSavedSig(){
+  if(!S.savedSig){notify('⚠️ Nenhuma assinatura salva. Vá em Configurações.');return;}
+  const c=document.getElementById('sig-canvas-assinar');if(!c)return;
+  const ctx=c.getContext('2d'),img=new Image();
+  img.onload=()=>{ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0);};
+  img.src=S.savedSig;
+}
+
+// ─── TABS ────────────────────────────────────
+function switchTab(el,targetId){
+  const parent=el.closest('.tabs');
+  parent.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const prefixes=['ct-','pr-','tab-'];
+  let matched=false;
+  prefixes.forEach(p=>{if(targetId.startsWith(p)&&!matched){matched=true;document.querySelectorAll(`[id^="${p}"]`).forEach(s=>s.style.display='none');}});
+  const el2=document.getElementById(targetId);if(el2)el2.style.display='';
+}
+
+// ─── MODALS ──────────────────────────────────
+function openModal(id){
+  document.getElementById(id)?.classList.add('open');
+  if(id==='modal-nova-receita'||id==='modal-novo-exame') populateSels();
+}
+function closeModal(id){document.getElementById(id)?.classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ─── JITSI ───────────────────────────────────
+function openCustomJitsi(e){
+  e.preventDefault();
+  const room='psyclinic-'+(S.config.crm?S.config.crm.replace(/\D/g,''):Math.random().toString(36).substr(2,6));
+  window.open('https://meet.jit.si/'+room,'_blank');
+}
+
+// ─── HELPERS ─────────────────────────────────
+function v(id){const e=document.getElementById(id);return e?e.value:'';}
+function fmtD(s){if(!s)return'—';const[y,m,d]=(s.length>10?s.split('T')[0]:s).split('-');return`${d}/${m}/${y}`;}
+function fmtT(s){if(!s)return'—';return new Date(s).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+function fmtDT(s){if(!s)return'—';const d=new Date(s.includes('T')?s:s+'T00:00');return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+
+let ntTimer;
+function notify(msg){
+  const el=document.getElementById('notification');
+  document.getElementById('notif-icon').textContent=msg[0];
+  document.getElementById('notif-text').textContent=msg.slice(2);
+  el.classList.add('show'); clearTimeout(ntTimer); ntTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+init();
+</script>
+</body>
+</html>
